@@ -1,0 +1,36 @@
+Work log
+
+- Read README.md and noted the requested baseline: Python 3.13, Django, and PostgreSQL.
+- Checked the repository before making changes; it contained README.md only.
+- Created .venv before creating Django project files. Python 3.13 was not available;
+  the available Python interpreter was 3.14.2 (system Python 3.12 was also present).
+- Added requirements.txt for Django 5.2 and the PostgreSQL driver.
+- Added .gitignore entries for the virtual environment, Python cache files,
+  the local SQLite database, and environment secrets.
+- Installed Django 5.2.19 and psycopg 3.3.9 inside .venv.
+- Generated the standard Django project startup files under config/ and manage.py.
+- Updated config/settings.py to read Django secret/debug/allowed-host values from
+  environment variables, use PostgreSQL when POSTGRES_DB is set, and otherwise
+  use SQLite so the project can start locally without a database server.
+- Did not create feature apps or implement the README's application functionality.
+- Verified `manage.py check` successfully with both the default SQLite settings
+  and PostgreSQL settings selected.
+- Confirmed Django 5.2.19 is installed and `git diff --check` passes. The Django
+  check created ignored Python bytecode cache files under config/__pycache__/.
+
+Phase One application implementation
+
+- Added the `users`, `workspaces`, `accounts`, `transactions`, and `dashboard`
+  Django apps and registered them in config/settings.py.
+- Implemented email-based users with case-insensitive unique emails, UUID IDs,
+  first/last names, Django password hashing and permissions, and admin/staff support.
+- Added UUID workspaces and unique user memberships with owner, admin, member,
+  and viewer roles. Workspace creation assigns the creator as owner.
+- Added a reusable workspace-role authorization helper in
+  workspaces/permissions.py; dashboard, account, and transaction endpoints use it.
+- Added workspace-scoped JSON endpoints for accounts, transactions, and dashboard
+  summaries, including currency-separated totals and transfer validation.
+- Added initial migrations and applied every migration to the configured SQLite DB.
+  Added model and endpoint authorization tests; all 8 tests pass.
+- Verified `manage.py check`, `makemigrations --check --dry-run`, and migration
+  application. No README changes are being kept per the user's instruction.
