@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Categories · PocketFinance{% endblock %}
+{% block page_heading %}Categories{% endblock %}
+{% block content %}
+<section class="page-intro"><div><h2>Income and expense categories</h2><p class="muted">Organize activity without making everyday recording complicated.</p></div></section>
+{% if category_form %}
+<section class="panel entry-panel">
+  <h3>Add a category</h3>
+  <form method="post" class="form-stack">
+    {% csrf_token %}
+    {% for field in category_form %}
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}
+    {% endfor %}
+    <datalist id="category-groups">
+      <option value="Housing"><option value="Food"><option value="Transport">
+      <option value="Personal"><option value="Health"><option value="Family">
+      <option value="Lifestyle"><option value="Financial"><option value="Business">
+      <option value="Communication"><option value="Giving"><option value="Other">
+      <option value="Employment"><option value="Freelance"><option value="Investments">
+      <option value="Property">
+    </datalist>
+    <button class="button button-primary" type="submit">Add category</button>
+  </form>
+</section>
+{% endif %}
+<section class="panel data-panel">
+  <div class="content-grid category-grid">
+    <div>
+      <h3>Income</h3>
+      {% for group in category_groups %}{% if group.kind == "income" %}
+        <h4 class="category-group-heading">{{ group.name }}</h4>
+        {% for category in group.categories %}<div class="detail-row"><span>{{ category.name }}</span></div>{% endfor %}
+      {% endif %}{% empty %}<p class="muted">No categories yet.</p>{% endfor %}
+    </div>
+    <div>
+      <h3>Expenses</h3>
+      {% for group in category_groups %}{% if group.kind == "expense" %}
+        <h4 class="category-group-heading">{{ group.name }}</h4>
+        {% for category in group.categories %}<div class="detail-row"><span>{{ category.name }}</span></div>{% endfor %}
+      {% endif %}{% empty %}<p class="muted">No categories yet.</p>{% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

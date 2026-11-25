@@ -16,16 +16,32 @@ Including another URLconf
 """
 
 from django.contrib import admin
+from django.contrib.auth import views as auth_views
 from django.urls import include, path
+
+from dashboard.views import dashboard
+from users.views import register
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("",include("workspaces.urls")),
+    path("", include("dashboard.urls")),
+    path(
+        "login/",
+        auth_views.LoginView.as_view(
+            template_name="users/login.html",
+            redirect_authenticated_user=True,
+        ),
+        name="login",
+    ),
+    path("logout/", auth_views.LogoutView.as_view(), name="logout"),
+    path("register/", register, name="register"),
+    path("workspaces/", include("workspaces.web_urls")),
     path("api/workspaces/", include("workspaces.urls")),
     path("api/workspaces/<uuid:workspace_id>/accounts/", include("accounts.urls")),
     path("api/workspaces/<uuid:workspace_id>/transactions/", include("transactions.urls")),
     path(
         "api/workspaces/<uuid:workspace_id>/dashboard/",
-        include("dashboard.urls"),
+        dashboard,
+        name="api_dashboard",
     ),
 ]

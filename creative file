@@ -34,3 +34,85 @@ Phase One application implementation
   Added model and endpoint authorization tests; all 8 tests pass.
 - Verified `manage.py check`, `makemigrations --check --dry-run`, and migration
   application. No README changes are being kept per the user's instruction.
+
+Phase Two user interface and workspace setup
+
+- Updated README.md with the first user-facing release scope while preserving the
+  broader product blueprint.
+- Updated config/settings.py with auth redirects, workspace template context, and
+  an absolute static URL for the dashboard stylesheet.
+- Updated config/urls.py to serve the dashboard, login, logout, registration,
+  shared-workspace creation, and the existing JSON API routes.
+- Updated users/views.py to register users, create their initial personal
+  workspace and owner membership atomically, and sign them in.
+- Added users/forms.py for validated email-based account registration.
+- Updated users/tests.py with registration, login/logout, and anonymous dashboard
+  redirect coverage.
+- Added users/templates/users/login.html and
+  users/templates/users/register.html for the responsive authentication screens.
+- Updated workspaces/models.py with personal/shared type, base currency, and
+  timezone configuration.
+- Added workspaces/migrations/0002_workspace_base_currency_workspace_timezone_and_more.py
+  to persist the new workspace settings.
+- Added workspaces/forms.py and workspaces/pages.py for validating and creating
+  shared workspaces, including the owner's membership.
+- Added workspaces/context_processors.py for the user's active workspace and
+  available workspace memberships in the shared base template.
+- Added workspaces/web_urls.py and workspaces/templates/workspaces/create.html
+  for shared-workspace setup.
+- Updated workspaces/tests.py to verify shared workspace configuration and reject
+  invalid currency/timezone values.
+- Updated dashboard/views.py and dashboard/urls.py with a template dashboard,
+  per-currency/monthly summaries, workspace switching, and preserved API output.
+- Updated dashboard/tests.py for dashboard rendering, currency-separated
+  balances, and workspace selection.
+- Added dashboard/templates/base.html using the requested base-template
+  structure and dashboard/templates/dashboard/home.html for the overview.
+- Added dashboard/static/css/app.css with responsive styling for the shell,
+  navigation, forms, cards, and dashboard panels.
+- Applied the workspace configuration migration to the local SQLite database.
+- Verified all 18 Django tests, `manage.py check`, migration consistency, and
+  `git diff --check`; the focused users/dashboard/workspaces tests total 14.
+
+Phase Three finance features
+
+- Added a database-backed currency catalog initially containing QAR, KES, USD,
+  EUR, and GBP; new currencies can be added by an administrator.
+- Added mobile-money account support, automatic opening-balance conversion from
+  the cached `open.er-api.com` public rate feed, and CSV export for workspace
+  accounts. The account-entry form no longer asks for an opening rate.
+- Added workspace-scoped income and expense categories and a transaction screen
+  for income, expenses, and transfers.
+- Posted each new transaction to a balanced double-entry journal using its
+  recorded exchange rate and the workspace reporting currency. Posted
+  transactions and journal lines cannot be edited or deleted.
+- Kept credit-card purchases as expenses that increase card liabilities and
+  repayments as transfers that do not count as additional expenses.
+- Added owner-only workspace settings for base currency and timezone, plus the
+  six primary navigation destinations: Home, Activity, Accounts, Reports,
+  Goals, and More.
+- Added account balances and financial summaries using transaction-time
+  conversions; goals and integrations currently display their next-step state.
+- Required transaction-time exchange rates for foreign-currency postings, made
+  transaction retries idempotent, and kept workspace reporting currency from
+  changing once balances or transactions exist.
+- Added activity search and recent transaction suggestions that prefill recent
+  transaction details for review before recording.
+- Applied the Sprint 3 migrations to the local SQLite database. Verified all
+  41 Django tests, `manage.py check`, migration consistency, and `git diff --check`.
+
+Sprint three quick-entry and interface updates
+
+- Added a floating add button that opens four direct actions: Expense, Income,
+  Transfer, and Quick entry.
+- Updated the shared application styling to the requested navy, teal, soft-white,
+  emerald, soft-red, and amber palette, with responsive cards and transaction
+  controls.
+- Added expandable, workspace-scoped recommended income and expense category
+  groups and default category seeding for new and existing workspaces.
+- Added optional links from refund income records to their original expenses;
+  linked refunds reduce reported expenses rather than inflating income.
+- Added persistent workspace quick-entry templates, including account,
+  destination, category, amount, and description, with a form option to save
+  the current transaction as a reusable template.
+- Added focused coverage for saving and pre-filling quick-entry templates.

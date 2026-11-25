@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Overview · PocketFinance{% endblock %}
+{% block page_heading %}Overview{% endblock %}
+{% block content %}
+<section class="welcome-row">
+  <div>
+    <h2>Hello, {{ user.first_name|default:"there" }}.</h2>
+    <p class="muted">A clear view of your financial workspace, all in one place.</p>
+  </div>
+  {% if active_workspace %}
+    <span class="workspace-tag">{{ active_workspace.get_workspace_type_display }} workspace</span>
+  {% else %}
+    <a class="button button-primary" href="{% url 'workspaces:create' %}">Create a workspace</a>
+  {% endif %}
+</section>
+
+<section class="summary-grid" aria-label="Financial summary">
+  <article class="summary-card">
+    <span class="card-label">NET WORTH</span>
+    {% if has_accounts and reporting_summary %}
+      <strong class="summary-value">{{ reporting_summary.net_worth|floatformat:2 }} <span>{{ reporting_summary.currency }}</span></strong>
+      <span class="muted small">Converted to your base currency</span>
+    {% else %}
+      <strong class="summary-value">—</strong>
+      <span class="muted small">Add an account to see your balances</span>
+    {% endif %}
+  </article>
+  <article class="summary-card">
+    <span class="card-label">INCOME THIS MONTH</span>
+    {% if has_accounts and reporting_summary %}
+      <strong class="summary-value income-value">{{ reporting_summary.income|floatformat:2 }} <span>{{ reporting_summary.currency }}</span></strong>
+      <span class="muted small">Income recorded this month</span>
+    {% else %}
+      <strong class="summary-value">—</strong>
+      <span class="muted small">No transactions recorded yet</span>
+    {% endif %}
+  </article>
+  <article class="summary-card">
+    <span class="card-label">SPENDING THIS MONTH</span>
+    {% if has_accounts and reporting_summary %}
+      <strong class="summary-value expense-value">{{ reporting_summary.expenses|floatformat:2 }} <span>{{ reporting_summary.currency }}</span></strong>
+      <span class="muted small">Expenses recorded this month</span>
+    {% else %}
+      <strong class="summary-value">—</strong>
+      <span class="muted small">No transactions recorded yet</span>
+    {% endif %}
+  </article>
+</section>
+
+<section class="quick-actions" aria-label="Quick actions">
+  <a class="button button-primary" href="{% url 'dashboard:activity' %}">＋ Record a transaction</a>
+  <a class="button button-secondary" href="{% url 'dashboard:accounts' %}">Manage accounts</a>
+</section>
+
+<section class="content-grid">
+  <article class="panel getting-started">
+    <div class="panel-heading">
+      <div>
+        <span class="eyebrow">YOUR NEXT STEP</span>
+        <h3>Build your financial picture</h3>
+        <p class="muted">Start simple. Add an account and your dashboard will begin to fill in.</p>
+      </div>
+    </div>
+    <div class="empty-state">
+      <div class="empty-icon">✦</div>
+      <h3>{% if has_accounts %}Your workspace is ready{% else %}Your finances, organized{% endif %}</h3>
+      <p class="muted">
+        {% if has_accounts %}
+          Your account balances are summarized above. More tools will appear as PocketFinance grows.
+        {% else %}
+          Your personal workspace is private to you. Create a shared workspace whenever you want to manage finances together.
+        {% endif %}
+      </p>
+      {% if not has_accounts %}
+        <a class="button button-primary" href="{% url 'dashboard:accounts' %}">＋ Add an account</a>
+      {% endif %}
+    </div>
+  </article>
+  <article class="panel workspace-panel">
+    <div class="panel-heading">
+      <div>
+        <span class="eyebrow">WORKSPACE</span>
+        <h3>Workspace details</h3>
+      </div>
+    </div>
+    {% if membership %}
+      <div class="detail-row"><span class="muted">Name</span><strong>{{ membership.workspace.name }}</strong></div>
+      <div class="detail-row"><span class="muted">Environment</span><strong>{{ membership.workspace.get_workspace_type_display }}</strong></div>
+      <div class="detail-row"><span class="muted">Your role</span><strong>{{ membership.get_role_display }}</strong></div>
+      <div class="detail-row"><span class="muted">Base currency</span><strong>{{ membership.workspace.base_currency }}</strong></div>
+      <div class="detail-row"><span class="muted">Timezone</span><strong>{{ membership.workspace.timezone }}</strong></div>
+    {% else %}
+      <p class="muted">No workspace membership found. Create a workspace to get started.</p>
+    {% endif %}
+    <a class="text-link" href="{% url 'workspaces:create' %}">＋ Create a shared workspace</a>
+  </article>
+</section>
+{% endblock %}

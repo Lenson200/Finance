@@ -4,6 +4,7 @@ from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
+from categories.defaults import seed_default_categories
 from workspaces.models import Membership, Workspace
 
 
@@ -46,6 +47,7 @@ def workspaces(request):
             user=request.user,
             role=Membership.Role.OWNER,
         )
+        seed_default_categories(workspace)
     return JsonResponse(
         {"id": str(workspace.pk), "name": workspace.name, "role": Membership.Role.OWNER},
         status=201,

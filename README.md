@@ -237,3 +237,27 @@ Smart transaction categorization.
 Bank API integrations where supported.
 
 Receipt scanning and intelligent categorization in later releases.
+
+7. First user-facing release
+The initial template-based release includes email registration and login, a private
+personal workspace created at signup, shared workspace setup, and a workspace-aware
+dashboard.
+
+Sprint three adds six simple destinations (Home, Activity, Accounts, Reports,
+Goals, and More), owner-controlled workspace settings, and a currency catalog
+seeded with QAR, KES, USD, EUR, and GBP. Add further currencies through Django
+admin when needed. Accounts retain their original currency; opening balances
+are converted with a cached (24-hour) quote from `open.er-api.com`, while
+transaction rates are saved at posting time and used for reporting-currency
+totals. If a current quote is unavailable, foreign-currency account creation
+fails clearly rather than guessing.
+Choose the workspace reporting currency before entering opening balances or
+transactions; it is locked afterward so historical conversions remain consistent.
+Income, expense, and transfer postings create balanced, immutable double-entry
+journal entries. Credit-card purchases increase the card liability, while
+repayments are transfers and do not inflate expense totals. Categories,
+recent-transaction suggestions, reusable quick-entry templates, and account CSV
+export are available in the interface. Expense refunds can link to their
+original expense and reduce reported expenses rather than appearing as income.
+The interface uses a navy, teal, and soft-white palette with a floating
+four-action transaction menu and expandable starter category groups.

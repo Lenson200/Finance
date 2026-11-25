@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}More · PocketFinance{% endblock %}
+{% block page_heading %}More{% endblock %}
+{% block content %}
+<section class="page-intro"><div><h2>Workspace tools</h2><p class="muted">Settings and supporting tools for your finances.</p></div></section>
+<section class="panel link-list">
+  <a class="detail-row" href="{% url 'dashboard:settings' %}"><strong>Settings</strong><span>Base currency and timezone →</span></a>
+  <a class="detail-row" href="{% url 'dashboard:categories' %}"><strong>Categories</strong><span>Income and expense categories →</span></a>
+  <a class="detail-row" href="{% url 'workspaces:create' %}"><strong>Workspaces</strong><span>Create a shared workspace →</span></a>
+  <div class="detail-row"><strong>Integrations</strong><span class="muted">Coming later</span></div>
+</section>
+{% endblock %}

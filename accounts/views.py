@@ -7,7 +7,9 @@ from django.core.validators import DecimalValidator
 from django.views.decorators.http import require_http_methods
 
 from accounts.models import Account
+from workspaces.models import Currency
 from workspaces.permissions import require_workspace_role
+from workspaces.rates import ExchangeRateUnavailable, get_exchange_rate
 
 
 def account_data(account):
@@ -56,6 +58,9 @@ def accounts(request, workspace_id):
         or not currency.isascii()
     ):
         return JsonResponse({"detail": "Currency must be a three-letter code."}, status=400)
+    currency = currency.upper()
+    if not Currency.objects.filter(code=currency, is_active=True).exists():
+        return JsonResponse({"detail": "Currency is not supported."}, status=400)
     if not opening_balance.is_finite():
         return JsonResponse({"detail": "Opening balance must be finite."}, status=400)
     try:
@@ -63,11 +68,27 @@ def accounts(request, workspace_id):
     except ValidationError:
         return JsonResponse({"detail": "Opening balance supports at most 12 digits and 2 decimals."}, status=400)
 
-    account = Account.objects.create(
+    if currency == request.workspace.base_currency or not opening_balance:
+        opening_balance_rate = Decimal("1")
+    else:
+        try:
+            opening_balance_rate = get_exchange_rate(
+                currency,
+                request.workspace.base_currency,
+            )
+        except ExchangeRateUnavailable as error:
+            return JsonResponse({"detail": str(error)}, status=503)
+
+    account = Account(
         workspace=request.workspace,
         name=name.strip(),
         account_type=account_type,
-        currency=currency.upper(),
+        currency=currency,
         opening_balance=opening_balance,
+        opening_balance_rate=opening_balance_rate,
     )
+    try:
+        account.save()
+    except ValidationError as error:
+        return JsonResponse({"detail": error.messages}, status=400)
     return JsonResponse(account_data(account), status=201)

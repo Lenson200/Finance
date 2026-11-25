@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}New shared workspace · PocketFinance{% endblock %}
+{% block page_heading %}Create a shared workspace{% endblock %}
+{% block content %}
+<section class="form-panel">
+  <h2>Set up shared finances</h2>
+  <p class="muted">Create a separate environment for household or family finances. You will be its owner.</p>
+  <form method="post" class="form-stack">
+    {% csrf_token %}
+    {% for field in form %}
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<small class="field-help">{{ field.help_text }}</small>{% endif %}
+      {{ field.errors }}
+    {% endfor %}
+    <div class="form-actions">
+      <a class="button button-secondary" href="{% url 'dashboard:home' %}">Cancel</a>
+      <button class="button button-primary" type="submit">Create workspace</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

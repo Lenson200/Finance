@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Sign in · PocketFinance{% endblock %}
+{% block content %}
+<section class="auth-card">
+  <a class="brand auth-brand" href="{% url 'login' %}">
+    <span class="brand-mark">P</span><span>PocketFinance</span>
+  </a>
+  <h1>Welcome back</h1>
+  <p class="muted">Sign in to your financial workspace.</p>
+  <form method="post" class="form-stack">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+    <label for="{{ form.username.id_for_label }}">Email</label>
+    {{ form.username }}
+    {{ form.username.errors }}
+    <label for="{{ form.password.id_for_label }}">Password</label>
+    {{ form.password }}
+    {{ form.password.errors }}
+    <button class="button button-primary" type="submit">Sign in</button>
+  </form>
+  <p class="auth-switch">New to PocketFinance? <a href="{% url 'register' %}">Create an account</a></p>
+</section>
+{% endblock %}

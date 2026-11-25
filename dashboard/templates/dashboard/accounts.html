@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Accounts · PocketFinance{% endblock %}
+{% block page_heading %}Accounts{% endblock %}
+{% block content %}
+<section class="page-intro">
+  <div><h2>Your accounts</h2><p class="muted">Banks, cash, savings, mobile money and cards. Foreign balances are converted automatically.</p></div>
+  <a class="button button-secondary" href="{% url 'dashboard:accounts_export' %}">Export CSV</a>
+</section>
+{% if account_form %}
+<section class="panel entry-panel">
+  <h3>Add an account</h3>
+  <form method="post" class="form-stack">
+    {% csrf_token %}
+    {{ account_form.non_field_errors }}
+    {% for field in account_form %}
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {{ field.errors }}
+    {% endfor %}
+    <button class="button button-primary" type="submit">Add account</button>
+  </form>
+</section>
+{% endif %}
+<section class="panel data-panel">
+  {% if account_rows %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Account</th><th>Type</th><th>Currency</th><th class="amount">Balance</th></tr></thead>
+        <tbody>
+        {% for account, balance in account_rows %}
+          <tr><td><strong>{{ account.name }}</strong></td><td>{{ account.get_account_type_display }}</td><td>{{ account.currency }}</td><td class="amount">{{ balance|floatformat:2 }} {{ account.currency }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state"><div class="empty-icon">▣</div><h3>No accounts yet</h3><p class="muted">Add a bank, cash wallet, mobile-money account or card.</p></div>
+  {% endif %}
+</section>
+{% endblock %}

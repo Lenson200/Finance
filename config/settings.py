@@ -48,11 +48,15 @@ INSTALLED_APPS = [
     "users",
     "workspaces",
     "accounts",
+    "categories",
     "transactions",
     "dashboard",
 ]
 
 AUTH_USER_MODEL = "users.User"
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "dashboard:home"
+LOGOUT_REDIRECT_URL = "login"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -76,6 +80,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "workspaces.context_processors.workspace_context",
             ],
         },
     },
@@ -141,7 +146,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

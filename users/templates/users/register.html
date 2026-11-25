@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Create account · PocketFinance{% endblock %}
+{% block content %}
+<section class="auth-card">
+  <a class="brand auth-brand" href="{% url 'register' %}">
+    <span class="brand-mark">P</span><span>PocketFinance</span>
+  </a>
+  <h1>Create your account</h1>
+  <p class="muted">Start with a private personal workspace. You can add a shared one anytime.</p>
+  <form method="post" class="form-stack">
+    {% csrf_token %}
+    {% for field in form %}
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<small class="field-help">{{ field.help_text|safe }}</small>{% endif %}
+      {{ field.errors }}
+    {% endfor %}
+    <button class="button button-primary" type="submit">Create account</button>
+  </form>
+  <p class="auth-switch">Already registered? <a href="{% url 'login' %}">Sign in</a></p>
+</section>
+{% endblock %}

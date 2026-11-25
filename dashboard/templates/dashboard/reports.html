@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Reports · PocketFinance{% endblock %}
+{% block page_heading %}Reports{% endblock %}
+{% block content %}
+<section class="page-intro"><div><h2>Financial picture</h2><p class="muted">Values are converted using the exchange rate saved with each transaction.</p></div></section>
+{% if summary %}
+<section class="summary-grid report-summary">
+  <article class="summary-card"><span class="card-label">NET WORTH</span><strong class="summary-value">{{ summary.net_worth|floatformat:2 }} <span>{{ summary.currency }}</span></strong></article>
+  <article class="summary-card"><span class="card-label">INCOME THIS MONTH</span><strong class="summary-value">{{ summary.income|floatformat:2 }} <span>{{ summary.currency }}</span></strong></article>
+  <article class="summary-card"><span class="card-label">EXPENSES THIS MONTH</span><strong class="summary-value">{{ summary.expenses|floatformat:2 }} <span>{{ summary.currency }}</span></strong></article>
+</section>
+<section class="panel data-panel">
+  <h3>Spending by category</h3>
+  {% for name, amount in expense_categories %}
+    <div class="detail-row"><span>{{ name }}</span><strong>{{ amount|floatformat:2 }} {{ summary.currency }}</strong></div>
+  {% empty %}
+    <div class="empty-state"><p class="muted">Record an expense to see your spending breakdown.</p></div>
+  {% endfor %}
+</section>
+{% else %}
+<section class="panel empty-state"><h3>Create a workspace to see reports</h3></section>
+{% endif %}
+{% endblock %}
