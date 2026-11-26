@@ -1,0 +1,103 @@
+<section class="panel entry-panel transaction-entry" id="quick-entry">
+  <div class="entry-heading">
+    <div>
+      <span class="eyebrow">QUICK RECORD</span>
+      <h2 id="entry-title">{% if transaction_form.kind.value == "income" %}Record income{% elif transaction_form.kind.value == "transfer" %}Transfer between accounts{% else %}Record expense{% endif %}</h2>
+      <p class="muted">Your ledger stays balanced automatically.</p>
+    </div>
+    {% if active_workspace %}<span class="workspace-tag">{{ active_workspace.base_currency }}</span>{% endif %}
+  </div>
+  {% if suggestions %}
+    <div class="suggestions" aria-label="Recent transaction suggestions">
+      <span class="eyebrow">USE A RECENT TRANSACTION</span>
+      {% for suggestion in suggestions %}
+        <button
+          class="suggestion-chip recent-suggestion-chip"
+          type="button"
+          {% if suggestion.kind != transaction_form.kind.value %}hidden{% endif %}
+          data-kind="{{ suggestion.kind }}"
+          data-account="{{ suggestion.account_id }}"
+          data-category="{{ suggestion.category_id|default:'' }}"
+          data-refund-of="{{ suggestion.refund_of_id|default:'' }}"
+          data-amount="{{ suggestion.amount }}"
+          data-description="{{ suggestion.description }}"
+        >
+          {{ suggestion.category_name }} · {{ suggestion.account_name }} · {{ suggestion.amount }} {{ suggestion.currency }}
+        </button>
+      {% endfor %}
+      <span class="muted small no-kind-suggestions" hidden>No recent suggestions for this transaction type.</span>
+    </div>
+  {% endif %}
+  {% if quick_templates %}
+    <div class="suggestions saved-templates" aria-label="Saved quick-entry templates">
+      <span class="eyebrow">SAVED QUICK ENTRIES</span>
+      {% for template in quick_templates %}
+        <button
+          class="suggestion-chip saved-template-chip"
+          type="button"
+          {% if template.kind != transaction_form.kind.value %}hidden{% endif %}
+          data-kind="{{ template.kind }}"
+          data-account="{{ template.account_id }}"
+          data-destination="{{ template.destination_account_id|default:'' }}"
+          data-category="{{ template.category_id|default:'' }}"
+          data-amount="{{ template.amount }}"
+          data-description="{{ template.description }}"
+        >
+          {{ template.name }} · {{ template.amount }} {{ template.account.currency }}
+        </button>
+      {% endfor %}
+      <span class="muted small no-kind-suggestions" hidden>No saved templates for this transaction type.</span>
+    </div>
+  {% endif %}
+  <div class="quick-kind-select" role="group" aria-label="Transaction type">
+    <button type="button" data-kind-button="expense">Expense</button>
+    <button type="button" data-kind-button="income">Income</button>
+    <button type="button" data-kind-button="transfer">Transfer</button>
+  </div>
+  <form method="post" class="form-stack" id="quick-transaction-form" data-base-currency="{{ active_workspace.base_currency|default:'QAR' }}" data-offline-endpoint="{{ offline_transaction_config.endpoint }}" data-success-url="{{ offline_transaction_config.success_url }}">
+    {% csrf_token %}
+    {{ transaction_form.non_field_errors }}
+    {% for field in transaction_form %}
+      {% if field.is_hidden %}
+        {{ field }}
+      {% else %}
+        <div class="form-field" data-field="{{ field.name }}">
+          <label for="{{ field.id_for_label }}">{% if field.name == "account" %}Paid from / received into{% else %}{{ field.label }}{% endif %}</label>
+          {{ field }}
+          {% if field.name == "category" %}
+            <div class="category-shortcuts" aria-label="Suggested categories">
+              {% for group in category_groups %}
+                <details class="category-group" data-kind="{{ group.kind }}" {% if group.kind != transaction_form.kind.value %}hidden{% endif %}>
+                  <summary>{{ group.name }}</summary>
+                  <div class="category-chips">
+                    {% for category in group.categories %}
+                      <button type="button" class="category-chip" data-category="{{ category.pk }}">{{ category.name }}</button>
+                    {% endfor %}
+                  </div>
+                </details>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}
+          {{ field.errors }}
+        </div>
+      {% endif %}
+    {% endfor %}
+    <button class="button button-primary record-button" type="submit">Record transaction</button>
+    <p id="offline-recording-status" class="field-help" role="status" aria-live="polite"></p>
+  </form>
+</section>
+{{ account_currencies|json_script:"account-currencies" }}
+{{ offline_transaction_config|json_script:"offline-transaction-config" }}
+<section class="panel data-panel" id="offline-queue-panel">
+  <div class="panel-heading">
+    <div>
+      <h3>Offline transactions</h3>
+      <p class="muted">Queued entries sync automatically when you reconnect. Repeated syncs use the same idempotency key to prevent duplicate postings.</p>
+    </div>
+    <button class="button button-secondary" id="sync-offline-transactions" type="button">Sync now</button>
+  </div>
+  <div id="offline-queue-list" class="recent-list" aria-live="polite">
+    <p class="muted small">Loading offline queue…</p>
+  </div>
+</section>

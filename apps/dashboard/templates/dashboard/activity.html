@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Transaction history · PocketFinance{% endblock %}
+{% block page_heading %}Transaction history{% endblock %}
+{% block content %}
+<section class="page-intro">
+  <div>
+    <h2>Transaction history</h2>
+    <p class="muted">Search and review the transactions in accounts shared with you.</p>
+  </div>
+  <a class="button button-primary" href="{% url 'dashboard:record_transaction' %}">＋ Record transaction</a>
+</section>
+<section class="panel data-panel">
+  <div class="panel-heading">
+    <h3>Recent activity</h3>
+    <form method="get" class="transaction-filter-form">
+      <label class="sr-only" for="activity-search">Search transactions</label>
+      <input id="activity-search" name="q" value="{{ search }}" placeholder="Search activity">
+      <label class="sr-only" for="activity-from">From date</label>
+      <input id="activity-from" type="date" name="from" value="{{ date_from }}">
+      <label class="sr-only" for="activity-to">To date</label>
+      <input id="activity-to" type="date" name="to" value="{{ date_to }}">
+      <button class="button button-secondary" type="submit">Search</button>
+    </form>
+  </div>
+  {% if transactions %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Transaction</th><th>Category</th><th>Account</th><th>Date</th><th class="amount">Amount</th></tr></thead>
+        <tbody>
+        {% for item in transactions %}
+          <tr>
+            <td><strong>{{ item.description|default:item.get_kind_display }}</strong><small>{{ item.get_kind_display }}</small></td>
+            <td>{% if item.refund_of_id %}Refund · {{ item.refund_of.category.name|default:"Expense" }}{% else %}{{ item.category.name|default:"Transfer" }}{% endif %}</td>
+            <td>
+              {% if item.account_id|stringformat:"s" in accessible_account_ids %}{{ item.account.name }}{% else %}Private account{% endif %}
+              {% if item.destination_account_id %} → {% if item.destination_account_id|stringformat:"s" in accessible_account_ids %}{{ item.destination_account.name }}{% else %}Private account{% endif %}{% endif %}
+            </td>
+            <td>{{ item.occurred_at|date:"M j, Y" }}</td>
+            <td class="amount {% if item.kind == 'expense' or item.refund_of_id %}expense-value{% elif item.kind == 'income' %}income-value{% else %}transfer-value{% endif %}">{% if item.kind == "expense" or item.refund_of_id %}−{% else %}+{% endif %} {{ item.amount }} {{ item.account.currency }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state"><div class="empty-icon">↔</div><h3>No activity yet</h3><p class="muted">Record an income, expense or transfer to get started.</p></div>
+  {% endif %}
+</section>
+{% endblock %}

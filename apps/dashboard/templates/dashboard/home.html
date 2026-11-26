@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Overview · PocketFinance{% endblock %}
+{% block page_heading %}Overview{% endblock %}
+{% block content %}
+<section class="welcome-row">
+  <div>
+    <h2>Hello, {{ user.first_name|default:"there" }}.</h2>
+    <p class="muted">Your available money and recent activity at a glance.</p>
+  </div>
+  {% if active_workspace %}
+    <span class="workspace-tag">{{ active_workspace.name }} · {{ active_workspace.base_currency }}</span>
+  {% else %}
+    <a class="button button-primary" href="{% url 'workspaces:create' %}">Create a workspace</a>
+  {% endif %}
+</section>
+
+<section class="panel range-panel">
+  <form method="get" class="date-range-form">
+    <label for="overview-range">Date range</label>
+    <select id="overview-range" name="range">
+      {% for value, label in range_options %}
+        <option value="{{ value }}" {% if date_range == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <label for="overview-from">From</label>
+    <input id="overview-from" type="date" name="from" value="{{ range_start|date:'Y-m-d' }}">
+    <label for="overview-to">To</label>
+    <input id="overview-to" type="date" name="to" value="{{ range_end|date:'Y-m-d' }}">
+    <button class="button button-primary" type="submit">Apply</button>
+  </form>
+</section>
+
+<section class="summary-grid overview-summary" aria-label="Available balance">
+  <article class="summary-card available-card">
+    <span class="card-label">AVAILABLE BALANCE</span>
+    {% if reporting_summary %}
+      <strong class="summary-value">{{ reporting_summary.available_cash|floatformat:2 }} <span>{{ reporting_summary.currency }}</span></strong>
+      <span class="muted small">Bank, cash &amp; mobile money − short-term debt</span>
+    {% else %}
+      <strong class="summary-value">—</strong>
+      <span class="muted small">Choose a workspace to see your balance</span>
+    {% endif %}
+  </article>
+  <article class="summary-card">
+    <span class="card-label">SHORT-TERM DEBT</span>
+    {% if reporting_summary %}
+      <strong class="summary-value expense-value">{{ reporting_summary.short_term_debt|floatformat:2 }} <span>{{ reporting_summary.currency }}</span></strong>
+      <span class="muted small">Deducted from available balance</span>
+    {% else %}<strong class="summary-value">—</strong>{% endif %}
+  </article>
+  <article class="summary-card">
+    <span class="card-label">LONG-TERM DEBT</span>
+    {% if reporting_summary %}
+      <strong class="summary-value">{{ reporting_summary.long_term_debt|floatformat:2 }} <span>{{ reporting_summary.currency }}</span></strong>
+      <span class="muted small">Tracked separately from available balance</span>
+    {% else %}<strong class="summary-value">—</strong>{% endif %}
+  </article>
+</section>
+
+<section class="overview-metrics">
+  <article class="summary-card">
+    <span class="card-label">INCOME IN RANGE</span>
+    {% if reporting_summary %}<strong class="summary-value income-value">{{ reporting_summary.income|floatformat:2 }} <span>{{ reporting_summary.currency }}</span></strong>
+    {% else %}<strong class="summary-value">—</strong>{% endif %}
+  </article>
+  <article class="summary-card">
+    <span class="card-label">SPENDING IN RANGE</span>
+    {% if reporting_summary %}<strong class="summary-value expense-value">{{ reporting_summary.expenses|floatformat:2 }} <span>{{ reporting_summary.currency }}</span></strong>
+    {% else %}<strong class="summary-value">—</strong>{% endif %}
+  </article>
+</section>
+
+<section class="quick-actions" aria-label="Quick actions">
+  <a class="button button-primary" href="{% url 'dashboard:record_transaction' %}">＋ Record a transaction</a>
+  <a class="button button-secondary" href="{% url 'dashboard:accounts' %}">View accounts</a>
+</section>
+
+{% if reporting_summary %}
+  <section class="overview-charts" aria-label="Financial charts">
+    <article class="panel chart-panel">
+      <div class="panel-heading"><div><span class="eyebrow">CASH IN</span><h3>Income</h3></div><strong class="income-value">{{ reporting_summary.currency }}</strong></div>
+      <div class="chart-bars" role="img" aria-label="Income graph for selected date range">
+        {% for period in reporting_summary.graph_periods %}
+          <div class="chart-column">
+            <div class="chart-track"><span class="chart-bar income-bar" style="height:{{ period.income_height }}%" title="{{ period.label }} · {{ period.income|floatformat:2 }}"></span></div>
+            <small>{{ period.label }}</small>
+          </div>
+        {% endfor %}
+      </div>
+    </article>
+    <article class="panel chart-panel">
+      <div class="panel-heading"><div><span class="eyebrow">CASH OUT</span><h3>Spending</h3></div><strong class="expense-value">{{ reporting_summary.currency }}</strong></div>
+      <div class="chart-bars" role="img" aria-label="Spending graph for selected date range">
+        {% for period in reporting_summary.graph_periods %}
+          <div class="chart-column">
+            <div class="chart-track"><span class="chart-bar expense-bar" style="height:{{ period.expense_height }}%" title="{{ period.label }} · {{ period.expenses|floatformat:2 }}"></span></div>
+            <small>{{ period.label }}</small>
+          </div>
+        {% endfor %}
+      </div>
+    </article>
+    <article class="panel chart-panel chart-panel-wide">
+      <div class="panel-heading"><div><span class="eyebrow">INCOME − SPENDING</span><h3>Cashflow</h3></div><strong class="transfer-value">{{ reporting_summary.currency }}</strong></div>
+      <div class="chart-bars" role="img" aria-label="Cashflow graph for selected date range">
+        {% for period in reporting_summary.graph_periods %}
+          <div class="chart-column">
+            <div class="chart-track"><span class="chart-bar cashflow-bar {% if period.cashflow < 0 %}cashflow-negative{% endif %}" style="height:{{ period.cashflow_height }}%" title="{{ period.label }} · {{ period.cashflow|floatformat:2 }}"></span></div>
+            <small>{{ period.label }}</small>
+          </div>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+{% endif %}
+
+<section class="overview-bottom">
+  <article class="panel recent-transactions">
+    <div class="panel-heading">
+      <div><span class="eyebrow">LATEST ACTIVITY</span><h3>Recent transactions</h3></div>
+      <a class="text-link" href="{% url 'dashboard:transaction_history' %}">Transaction history →</a>
+    </div>
+    {% if reporting_summary.recent_transactions %}
+      <div class="recent-list">
+        {% for item in reporting_summary.recent_transactions %}
+          <div class="recent-row">
+            <span class="recent-kind-icon {% if item.kind == 'income' %}income-icon{% elif item.kind == 'expense' %}expense-icon{% else %}transfer-icon{% endif %}">{% if item.kind == 'income' %}↑{% elif item.kind == 'expense' %}↓{% else %}↔{% endif %}</span>
+            <span class="recent-description"><strong>{{ item.description|default:item.get_kind_display }}</strong><small>{% if item.refund_of_id %}Refund · {% endif %}{% if item.category %}{{ item.category.name }}{% elif item.account_id|stringformat:"s" in visible_account_ids %}{{ item.account.name }}{% else %}Transfer{% endif %} · {% if item.account_id|stringformat:"s" in visible_account_ids %}{{ item.account.name }}{% else %}Private account{% endif %}</small></span>
+            <strong class="recent-amount {% if item.kind == 'income' and not item.refund_of_id %}income-value{% elif item.kind == 'expense' or item.refund_of_id %}expense-value{% else %}transfer-value{% endif %}">{% if item.kind == 'expense' or item.refund_of_id %}−{% else %}+{% endif %}{{ item.amount|floatformat:2 }} {{ item.account.currency }}</strong>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state compact-empty"><h3>No transactions yet</h3><p class="muted">Your shared accounts’ activity will appear here.</p></div>
+    {% endif %}
+  </article>
+  <article class="panel upcoming-panel">
+    <div class="panel-heading"><div><span class="eyebrow">COMING LATER</span><h3>Upcoming payments</h3></div></div>
+    <p class="muted">Plan bills, recurring payments, future payments, and budgets by due date.</p>
+    <div class="planned-payment-options">
+      <a class="settings-tab" href="{% url 'dashboard:bills_payments' %}?plan=recurring">Recurring</a>
+      <a class="settings-tab" href="{% url 'dashboard:bills_payments' %}?plan=future">Future payment</a>
+      <a class="settings-tab" href="{% url 'dashboard:bills_payments' %}?plan=budget">Budget</a>
+    </div>
+    <a class="button button-secondary" href="{% url 'dashboard:bills_payments' %}">Bills &amp; payments</a>
+  </article>
+</section>
+{% endblock %}

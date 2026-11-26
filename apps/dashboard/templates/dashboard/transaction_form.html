@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Record transaction · PocketFinance{% endblock %}
+{% block page_heading %}Record transaction{% endblock %}
+{% block content %}
+<section class="page-intro">
+  <div>
+    <h2>Record transaction</h2>
+    <p class="muted">Add an income, expense, or transfer to your ledger.</p>
+  </div>
+  <a class="button button-secondary" href="{% url 'dashboard:activity' %}">Transaction history</a>
+</section>
+{% if transaction_form %}
+  {% include "dashboard/_transaction_form.html" %}
+{% else %}
+  <section class="panel empty-state">
+    <h3>Transaction entry is unavailable</h3>
+    <p class="muted">You need workspace write access to record a transaction.</p>
+  </section>
+{% endif %}
+{% endblock %}

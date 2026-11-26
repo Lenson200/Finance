@@ -45,12 +45,12 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "users",
-    "workspaces",
-    "accounts",
-    "categories",
-    "transactions",
-    "dashboard",
+    "apps.users.apps.UsersConfig",
+    "apps.workspaces.apps.WorkspacesConfig",
+    "apps.accounts.apps.AccountsConfig",
+    "apps.categories.apps.CategoriesConfig",
+    "apps.transactions.apps.TransactionsConfig",
+    "apps.dashboard.apps.DashboardConfig",
 ]
 
 AUTH_USER_MODEL = "users.User"
@@ -64,6 +64,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.users.middleware.UserTimezoneMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -80,7 +81,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "workspaces.context_processors.workspace_context",
+                "apps.workspaces.context_processors.workspace_context",
             ],
         },
     },

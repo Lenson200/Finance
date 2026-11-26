@@ -226,6 +226,36 @@ The ledger is updated.
 
 The device receives synchronization confirmation.
 
+The web client caches its static application shell and the authenticated
+transaction-entry page, stores offline entries in IndexedDB, and uses Background
+Sync where available (with an online-event/manual-sync fallback elsewhere).
+Only static assets and transaction entry are cached; transaction history and
+other API responses are never cached. Open transaction entry once while online
+before relying on it offline. Offline entries keep their account, date, and
+exchange-rate snapshot; foreign-currency entries without a saved quote cannot
+be queued. The server validates every entry when syncing.
+
+Each queued transaction carries a UUID idempotency key. Retrying the same
+payload returns the existing posting rather than creating another ledger entry.
+If the key conflicts with different transaction data or the server rejects an
+entry, it remains in a visible review state instead of being silently dropped.
+Offline queue data and the cached transaction-entry page are stored on the
+device; sign-out clears the cached page, while unsynced entries remain associated
+with their original user and are not submitted for another signed-in user.
+
+## Timezones and transaction dates
+
+The browser's IANA timezone is detected and saved per user. Django activates that
+timezone for local UI rendering and transaction date entry, while date/time
+values are stored as timezone-aware instants. A shared workspace's configured
+timezone remains the reference for shared reporting, so one member traveling
+does not shift another member's report dates.
+
+Completed income, expense, and transfer transactions cannot be dated in the
+future. Future dates are reserved for planning features such as budgets, bill
+due dates, savings targets, scheduled payments, and investment maturity.
+Features marked Planned are policy guidance only and are not yet recordable.
+
 Automation will be introduced progressively:
 
 CSV and bank statement imports.
@@ -242,6 +272,11 @@ Receipt scanning and intelligent categorization in later releases.
 The initial template-based release includes email registration and login, a private
 personal workspace created at signup, shared workspace setup, and a workspace-aware
 dashboard.
+
+First-party Django applications live under `apps/` (`users`, `workspaces`,
+`accounts`, `categories`, `transactions`, and `dashboard`). Shared browser
+behavior is kept in `apps/dashboard/static/js/main.js`; templates provide
+structure and data attributes rather than inline JavaScript.
 
 Sprint three adds six simple destinations (Home, Activity, Accounts, Reports,
 Goals, and More), owner-controlled workspace settings, and a currency catalog
@@ -261,3 +296,29 @@ export are available in the interface. Expense refunds can link to their
 original expense and reduce reported expenses rather than appearing as income.
 The interface uses a navy, teal, and soft-white palette with a floating
 four-action transaction menu and expandable starter category groups.
+
+Account list entries open an account detail page showing its opening balance,
+current balance, reporting-currency equivalent, and transaction history. The
+history can be searched and filtered by type and date range, and exported as
+CSV. The account list can also be searched and filtered by type and currency.
+Transaction History is read-only; recording is on a separate page reached from
+the add button or the Record transaction action. Recent transaction suggestions
+and category options are limited to the currently selected transaction type.
+
+Shared workspaces use account-level access grants: workspace membership alone
+does not reveal an account or its transactions. The account creator and
+workspace owners receive access by default; other members need an explicit
+view or transaction-writing grant from Account management in Settings.
+Transaction history, account lists, exports, reports, and balances use those
+grants. A transfer is visible from a shared side while an unshared account's
+identity remains private; posting a transfer requires write access to both
+accounts.
+
+The Overview emphasizes available balance (bank, cash, and mobile-money
+balances less short-term debt), with long-term debt shown separately. Savings
+are not included in available balance. Income, spending, and cashflow
+charts can be filtered by preset or custom date ranges, with recent transactions
+below. Home remains a separate dashboard with the classic Net worth, Income
+this month, and Expenses this month summary cards. Bills & payments is a
+planned-feature placeholder for recurring payments, future payments, and
+budgets; it does not yet schedule or record them.

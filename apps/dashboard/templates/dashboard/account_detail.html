@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}{{ account.name }} · Accounts{% endblock %}
+{% block page_heading %}Account details{% endblock %}
+{% block content %}
+<section class="page-intro">
+  <div>
+    <a class="text-link" href="{% url 'dashboard:accounts' %}">← All accounts</a>
+    <h2>{{ account.name }}</h2>
+    <p class="muted">{{ account.get_account_type_display }} · {{ account.currency }}</p>
+  </div>
+  <a class="button button-secondary" href="{% url 'dashboard:account_transactions_export' account.pk %}">Export transaction history CSV</a>
+</section>
+
+<section class="summary-grid account-summary" aria-label="Account balance details">
+  <article class="summary-card">
+    <span class="card-label">CURRENT BALANCE</span>
+    <strong class="summary-value {% if account.is_liability %}expense-value{% endif %}">{{ balance|floatformat:2 }} <span>{{ account.currency }}</span></strong>
+    {% if account.is_liability %}<span class="muted small">Outstanding liability</span>{% else %}<span class="muted small">Opening balance plus account activity</span>{% endif %}
+  </article>
+  <article class="summary-card">
+    <span class="card-label">OPENING BALANCE</span>
+    <strong class="summary-value">{{ account.opening_balance|floatformat:2 }} <span>{{ account.currency }}</span></strong>
+    <span class="muted small">Starting balance recorded for this account</span>
+  </article>
+  <article class="summary-card">
+    <span class="card-label">REPORTING-CURRENCY BALANCE</span>
+    <strong class="summary-value">{{ balance_in_base|floatformat:2 }} <span>{{ membership.workspace.base_currency }}</span></strong>
+    <span class="muted small">Uses each transaction's recorded exchange rate</span>
+  </article>
+</section>
+
+<section class="panel data-panel account-history-panel">
+  <div class="panel-heading">
+    <div><span class="eyebrow">ACCOUNT ACTIVITY</span><h3>Transaction history</h3></div>
+  </div>
+  <form method="get" class="transaction-filter-form account-history-filters" role="search">
+    <label class="sr-only" for="account-transaction-search">Search account transactions</label>
+    <input id="account-transaction-search" name="q" value="{{ search }}" placeholder="Search description or category">
+    <label class="sr-only" for="account-transaction-kind">Transaction type</label>
+    <select id="account-transaction-kind" name="kind">
+      <option value="">All transaction types</option>
+      {% for value, label in transaction_kinds %}
+        <option value="{{ value }}" {% if kind == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <label class="sr-only" for="account-history-from">From date</label>
+    <input id="account-history-from" type="date" name="from" value="{{ date_from }}">
+    <label class="sr-only" for="account-history-to">To date</label>
+    <input id="account-history-to" type="date" name="to" value="{{ date_to }}">
+    <button class="button button-secondary" type="submit">Filter</button>
+    {% if search or kind or date_from or date_to %}<a class="text-link" href="{% url 'dashboard:account_detail' account.pk %}">Clear</a>{% endif %}
+  </form>
+
+  {% if transactions %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Transaction</th><th>Category</th><th>Transfer account</th><th class="amount">Amount</th><th class="amount">Reporting amount</th></tr></thead>
+        <tbody>
+        {% for item in transactions %}
+          <tr>
+            <td>{{ item.occurred_at|date:"M j, Y" }}</td>
+            <td><strong>{{ item.description|default:item.get_kind_display }}</strong><small>{{ item.get_kind_display }}</small></td>
+            <td>{% if item.refund_of_id %}Refund · {{ item.refund_of.category.name|default:"Expense" }}{% else %}{{ item.category.name|default:"—" }}{% endif %}</td>
+            <td>
+              {% if item.kind == "transfer" %}
+                {% if item.account_id == account.pk %}
+                  To {% if item.destination_account_id|stringformat:"s" in visible_account_ids %}{{ item.destination_account.name }}{% else %}Private account{% endif %}
+                {% else %}
+                  From {% if item.account_id|stringformat:"s" in visible_account_ids %}{{ item.account.name }}{% else %}Private account{% endif %}
+                {% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td class="amount {% if item.kind == 'expense' or item.refund_of_id %}expense-value{% elif item.kind == 'income' %}income-value{% else %}transfer-value{% endif %}">
+              {% if item.kind == "expense" and item.account_id == account.pk or item.kind == "transfer" and item.account_id == account.pk %}−{% elif item.kind == "income" and item.account_id == account.pk or item.kind == "transfer" and item.destination_account_id == account.pk %}+{% elif item.refund_of_id %}+{% endif %}
+              {{ item.amount|floatformat:2 }} {{ account.currency }}
+            </td>
+            <td class="amount">{{ item.amount_in_base|floatformat:2 }} {{ membership.workspace.base_currency }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state compact-empty"><h3>No matching transactions</h3><p class="muted">Try changing the search or filters, or export the full account history.</p></div>
+  {% endif %}
+</section>
+{% endblock %}

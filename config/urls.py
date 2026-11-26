@@ -19,12 +19,12 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
-from dashboard.views import dashboard
-from users.views import register
+from apps.dashboard.views import dashboard
+from apps.users.views import register
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", include("dashboard.urls")),
+    path("", include("apps.dashboard.urls")),
     path(
         "login/",
         auth_views.LoginView.as_view(
@@ -35,10 +35,10 @@ urlpatterns = [
     ),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("register/", register, name="register"),
-    path("workspaces/", include("workspaces.web_urls")),
-    path("api/workspaces/", include("workspaces.urls")),
-    path("api/workspaces/<uuid:workspace_id>/accounts/", include("accounts.urls")),
-    path("api/workspaces/<uuid:workspace_id>/transactions/", include("transactions.urls")),
+    path("workspaces/", include("apps.workspaces.web_urls")),
+    path("api/workspaces/", include("apps.workspaces.urls")),
+    path("api/workspaces/<uuid:workspace_id>/accounts/", include("apps.accounts.urls")),
+    path("api/workspaces/<uuid:workspace_id>/transactions/", include("apps.transactions.urls")),
     path(
         "api/workspaces/<uuid:workspace_id>/dashboard/",
         dashboard,

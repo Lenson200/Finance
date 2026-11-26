@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Account management · PocketFinance{% endblock %}
+{% block page_heading %}Settings{% endblock %}
+{% block content %}
+<section class="page-intro">
+  <div>
+    <h2>Account management</h2>
+    <p class="muted">Manage accounts and explicitly choose who can access each one.</p>
+  </div>
+</section>
+<nav class="settings-tabs" aria-label="Settings sections">
+  <a class="settings-tab" href="{% url 'dashboard:settings' %}">Workspace</a>
+  <a class="settings-tab active" href="{% url 'dashboard:settings_accounts' %}">Account management</a>
+</nav>
+{% if account_form %}
+  <section class="panel entry-panel">
+    <h3>Add an account</h3>
+    <p class="muted">By default, you and workspace owners can access it. Share it with other members below.</p>
+    <form method="post" class="form-stack" id="account-form">
+      {% csrf_token %}
+      {{ account_form.non_field_errors }}
+      {% for field in account_form %}
+        <div class="form-field" data-field="{{ field.name }}">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {{ field.errors }}
+        </div>
+      {% endfor %}
+      <button class="button button-primary" type="submit">Add account</button>
+    </form>
+  </section>
+{% endif %}
+{% if access_form %}
+  <section class="panel entry-panel">
+    <h3>Share an account</h3>
+    <p class="muted">Members can only see account activity after you grant access. Transaction access follows the account grants.</p>
+    <form method="post" class="form-stack">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="share">
+      {{ access_form.non_field_errors }}
+      {% for field in access_form %}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {{ field.errors }}
+      {% endfor %}
+      <button class="button button-primary" type="submit">Save account access</button>
+    </form>
+  </section>
+{% endif %}
+<section class="panel data-panel">
+  <div class="panel-heading"><h3>Accounts available to you</h3></div>
+  {% if account_rows %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Account</th><th>Type</th><th>Currency</th><th>Debt term</th><th class="amount">Balance</th></tr></thead>
+        <tbody>
+        {% for account, balance in account_rows %}
+          <tr>
+            <td><strong>{{ account.name }}</strong></td>
+            <td>{{ account.get_account_type_display }}</td>
+            <td>{{ account.currency }}</td>
+            <td>{% if account.is_liability %}{{ account.get_debt_term_display }}{% else %}—{% endif %}</td>
+            <td class="amount">{{ balance|floatformat:2 }} {{ account.currency }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="muted">No accounts are shared with you yet.</p>
+  {% endif %}
+</section>
+{% if grants %}
+  <section class="panel data-panel">
+    <div class="panel-heading"><h3>Access managed by you</h3></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Account</th><th>Member</th><th>Access</th><th></th></tr></thead>
+        <tbody>
+        {% for grant in grants %}
+          <tr>
+            <td>{{ grant.account.name }}</td>
+            <td>{{ grant.membership.user.get_full_name|default:grant.membership.user.email }}</td>
+            <td>{% if grant.can_manage %}Manager{% elif grant.can_write %}Can record transactions{% else %}View only{% endif %}</td>
+            <td>
+              {% if not grant.can_manage %}
+                <form method="post">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="remove-access">
+                  <input type="hidden" name="grant_id" value="{{ grant.pk }}">
+                  <button class="button button-secondary" type="submit">Remove</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endif %}
+{% endblock %}

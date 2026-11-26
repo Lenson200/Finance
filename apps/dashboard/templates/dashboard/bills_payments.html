@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Bills &amp; payments · PocketFinance{% endblock %}
+{% block page_heading %}Bills &amp; payments{% endblock %}
+{% block content %}
+<section class="page-intro">
+  <div>
+    <h2>Upcoming payments</h2>
+    <p class="muted">Recurring payments, scheduled payments, and budgets will be planned here.</p>
+  </div>
+</section>
+<section class="panel">
+  <div class="empty-state">
+    <div class="empty-icon">▤</div>
+    <h3>Payment planning is coming later</h3>
+    <p class="muted">You will be able to track bills, create recurring or future payments, and connect budgets to due dates.</p>
+    <div class="planned-payment-options" aria-label="Planned payment features">
+      {% for value, label in plan_options %}
+        <a class="settings-tab {% if selected_plan == value %}active{% endif %}" href="?plan={{ value }}">{{ label }} · Planned</a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+<section class="panel data-panel">
+  <div class="panel-heading">
+    <div>
+      <h3>Date rules</h3>
+      <p class="muted">Completed financial activity cannot be dated in the future. Planning dates may be future dates.</p>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Feature</th><th>Allow future dates?</th><th>Reason</th><th>Availability</th></tr></thead>
+      <tbody>
+      {% for feature, allows_future, reason, availability in date_policies %}
+        <tr>
+          <td><strong>{{ feature }}</strong></td>
+          <td>{% if allows_future %}Yes{% else %}No{% endif %}</td>
+          <td>{{ reason }}</td>
+          <td>{{ availability }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

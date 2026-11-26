@@ -116,3 +116,151 @@ Sprint three quick-entry and interface updates
   destination, category, amount, and description, with a form option to save
   the current transaction as a reusable template.
 - Added focused coverage for saving and pre-filling quick-entry templates.
+
+Application structure and JavaScript cleanup
+
+- Moved the six first-party Django applications (`users`, `workspaces`,
+  `accounts`, `categories`, `transactions`, and `dashboard`) into `apps/`.
+  Their Django labels remain unchanged, preserving model references and
+  migration history.
+- Updated Python imports, URL includes, app configuration, and the workspace
+  context processor to use the new `apps.*` package paths.
+- Removed inline JavaScript from templates and consolidated browser behavior in
+  `apps/dashboard/static/js/main.js`, loaded with `defer`.
+- Made each JavaScript feature initialize only when its required page elements
+  exist; optional buttons and fields no longer cause missing-element errors.
+- Documented the application layout and shared JavaScript entry point in README.
+
+Account privacy, overview, and payment planning
+
+- Added per-account grants with view, transaction-writing, and account-manager
+  capabilities. Workspace membership alone no longer reveals every account.
+  The account creator and workspace owners receive access by default; existing
+  accounts were migrated to their workspace owner.
+- Applied account grants to the browser account list, transaction history,
+  quick-entry account choices and templates, exports, API account and
+  transaction reads/writes, reports, and dashboard balances.
+- Required write grants on both accounts to post a transfer. Transfers can be
+  viewed from an accessible side, while the other account's identity is
+  redacted. Account managers can share or revoke access in Settings.
+- Added Account management under Settings beside the existing base-currency
+  and timezone settings. Added short- and long-term debt tiers; card and debt
+  balances are calculated as liabilities.
+- Reworked the sidebar to include Overview, Transaction history, Bills &
+  payments, and Settings. The Overview now shows available bank-and-cash
+  balance less short-term debt, tracks long-term debt separately, and excludes
+  savings and mobile-money balances from available cash.
+- Added custom and preset date ranges for separate income, spending, and
+  cashflow graphs, plus recent transactions and an upcoming-payments section.
+  Bills & payments offers planned recurring-payment, future-payment, and
+  budget choices as non-functional placeholders for a later phase.
+- Added regression tests for unshared account privacy, read-only grants,
+  explicit sharing, private transfer counterpart redaction, available balance,
+  date-range graphs, and page/navigation behavior.
+- Applied account-access and debt-tier migrations. Verified 53 Django tests,
+  Django system and migration checks, JavaScript syntax, and whitespace
+  integrity before the final additional access-denial test was added.
+
+Restoring the Home summary cards
+
+- Restored a separate Home destination with the original Net worth, Income this
+  month, and Expenses this month summary cards.
+- Kept Overview and its available-balance focus, date-range controls, financial
+  charts, recent transactions, and upcoming-payment placeholder unchanged.
+- Added a direct Home-to-Overview action and regression coverage for the restored
+  card totals and both sidebar destinations.
+
+Finance balance investigation and account history
+
+- Verified the local account and ledger rows against the values reported by the
+  user. Test 3's QAR credit card has a QAR 400.00 opening balance, plus the
+  recorded QAR 300.00 entertainment expense and QAR 11.00 subscription expense;
+  that correctly yields QAR 711.00 outstanding. No QAR 700 transaction exists.
+  The two KES 50,000.00 incomes are two separate posted transactions, not a
+  single duplicated display row.
+- Found that the Overview intentionally counted bank and cash balances but
+  omitted mobile money, even though it is spendable. Included mobile-money
+  balances in available funds and clarified the displayed formula. For the
+  inspected account data, KES funds convert to QAR 3,108.44 and subtracting the
+  QAR 711.00 card debt gives QAR 2,397.44 available. Savings remain excluded.
+- Added account detail pages linked from each account row. They show opening
+  balance separately from current balance and exchange-rate-aware reporting
+  balance, followed by transaction history.
+- Added per-account history export to CSV, with private counter-account names
+  redacted, plus transaction search, type and date filters. Added account-list
+  search and type/currency filters.
+- Added regression tests for mobile-money conversion in available balance and
+  for account opening-balance reconciliation, history filtering, account links,
+  and full CSV export.
+- Rechecked the actual workspace through the dashboard summary after the change:
+  available balance is QAR 2,397.44, short-term debt QAR 711.00, income QAR
+  2,968.42, and spending QAR 311.00. The QAR 711.00 comprises the QAR 400.00
+  card opening balance plus QAR 311.00 in posted purchases.
+- Verified all 57 Django tests, system and migration checks, JavaScript syntax,
+  and `git diff --check`.
+
+Separating transaction history and entry
+
+- Removed the QUICK RECORD form and transaction suggestions from Transaction
+  History. Added a dedicated Record transaction page and routed the floating
+  add menu and dashboard record buttons to it.
+- Kept Transaction History focused on searching and reviewing posted activity.
+- Filtered recent transaction suggestions and saved templates by the selected
+  kind, and limited suggested categories and category dropdown options to the
+  matching income or expense kind. Mismatching suggestions/options start hidden
+  and update when the user changes transaction type.
+- Limited recent suggestions to five per kind so switching types still has
+  relevant choices.
+- Added regression tests for the history page being form-free and for
+  type-specific entry-page markup. Focused tests and Django, migration,
+  JavaScript, and whitespace checks passed.
+
+Making Home the landing page
+
+- Changed the app root (`/`) to open the Home page with Net worth, Income this
+  month, and Expenses this month cards.
+- Preserved the Overview dashboard at `/overview/` and updated its sidebar and
+  Home-page links so both destinations remain available.
+- Kept `/home/` as an alternate route to Home. Added regression coverage for the
+  root landing page and the separate Overview route.
+
+Per-user timezones and future-date rules
+
+- Added a validated per-user IANA timezone preference and browser detection
+  that saves the detected zone. Middleware activates the saved timezone for
+  backend request handling and local UI date/time rendering.
+- Kept the workspace timezone as the shared reporting timezone, preventing one
+  member's region or travel from changing date boundaries for other members.
+- Transaction entry defaults to the user's local date and rejects future
+  dates. The transaction model also rejects future timestamps so other posting
+  paths cannot bypass the rule. Posted timestamps remain timezone-aware.
+- Added the requested future-date policy table to Bills & payments, clearly
+  marking planned features as not yet available.
+- Added migration and regression tests for timezone sync/validation, local
+  transaction dates, model- and form-level future-date prevention, shared
+  workspace timezone preservation, and the displayed policy table.
+
+Offline recording and synchronization
+
+- Added a root-scoped Service Worker and installable app manifest. It caches the
+  app shell and only the authenticated transaction-entry page; history and
+  finance API responses are not cached. Signing out clears the cached entry
+  page.
+- Added IndexedDB storage for offline transactions. The entry form posts online
+  through the existing authenticated transaction API and queues locally if the
+  connection is unavailable or drops during submission.
+- Captured the transaction's local date and a saved exchange-rate snapshot when
+  queueing. Foreign-currency transactions without a saved quote are rejected
+  from the offline queue rather than assigned a made-up rate.
+- Added Background Sync where supported, with online-event and manual sync
+  fallbacks. Sync obtains fresh authentication/CSRF context, only processes
+  entries belonging to the currently signed-in user, and displays queued,
+  synced, or conflict states.
+- Reused server-side idempotency keys to make retries safe. The API accepts
+  local transaction dates, rejects future dates, returns an existing posting
+  for an identical retry, and reports a conflict when the same key is reused
+  with different transaction data.
+- Added an offline fallback screen and a visible queue with retry and review
+  actions. Offline transaction entry is available after opening the entry page
+  once online; locally stored financial data remains on the device until synced
+  or dismissed.

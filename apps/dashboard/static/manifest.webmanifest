@@ -1,0 +1,17 @@
+{
+  "name": "PocketFinance",
+  "short_name": "PocketFinance",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f8fa",
+  "theme_color": "#13243a",
+  "icons": [
+    {
+      "src": "/static/icons/pocketfinance.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

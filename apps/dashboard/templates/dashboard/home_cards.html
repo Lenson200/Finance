@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Home · PocketFinance{% endblock %}
+{% block page_heading %}Home{% endblock %}
+{% block content %}
+<section class="welcome-row">
+  <div>
+    <h2>Hello, {{ user.first_name|default:"there" }}.</h2>
+    <p class="muted">Your financial snapshot for this month.</p>
+  </div>
+  {% if active_workspace %}
+    <span class="workspace-tag">{{ active_workspace.name }} · {{ active_workspace.base_currency }}</span>
+  {% endif %}
+</section>
+
+<section class="summary-grid" aria-label="Monthly financial summary">
+  <article class="summary-card">
+    <span class="card-label">NET WORTH</span>
+    {% if reporting_summary %}
+      <strong class="summary-value">{{ reporting_summary.net_worth|floatformat:2 }} <span>{{ reporting_summary.currency }}</span></strong>
+      <span class="muted small">Across accounts shared with you</span>
+    {% else %}
+      <strong class="summary-value">—</strong>
+      <span class="muted small">Choose a workspace to see your finances</span>
+    {% endif %}
+  </article>
+  <article class="summary-card">
+    <span class="card-label">INCOME THIS MONTH</span>
+    {% if reporting_summary %}
+      <strong class="summary-value income-value">{{ reporting_summary.income|floatformat:2 }} <span>{{ reporting_summary.currency }}</span></strong>
+      <span class="muted small">Income recorded this month</span>
+    {% else %}
+      <strong class="summary-value">—</strong>
+      <span class="muted small">No transactions recorded yet</span>
+    {% endif %}
+  </article>
+  <article class="summary-card">
+    <span class="card-label">EXPENSES THIS MONTH</span>
+    {% if reporting_summary %}
+      <strong class="summary-value expense-value">{{ reporting_summary.expenses|floatformat:2 }} <span>{{ reporting_summary.currency }}</span></strong>
+      <span class="muted small">Expenses recorded this month</span>
+    {% else %}
+      <strong class="summary-value">—</strong>
+      <span class="muted small">No transactions recorded yet</span>
+    {% endif %}
+  </article>
+</section>
+
+<section class="quick-actions" aria-label="Home actions">
+  <a class="button button-primary" href="{% url 'dashboard:record_transaction' %}">＋ Record a transaction</a>
+  <a class="button button-secondary" href="{% url 'dashboard:overview' %}">Open Overview</a>
+</section>
+{% endblock %}
