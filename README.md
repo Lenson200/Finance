@@ -322,3 +322,25 @@ below. Home remains a separate dashboard with the classic Net worth, Income
 this month, and Expenses this month summary cards. Bills & payments is a
 planned-feature placeholder for recurring payments, future payments, and
 budgets; it does not yet schedule or record them.
+
+## Savings goals and financial analytics
+
+Users can create workspace-scoped savings goals with a name, category, target
+amount, current savings, target date, and daily, weekly, or monthly contribution
+pace. Goal cards include local illustrations, progress, the remaining amount,
+and a suggested contribution based on the time left. Reaching 75% or completing
+a goal produces an in-app message and progress celebration. Goals are private
+to their creator and track manually entered savings; they do not move funds or
+change account balances.
+
+Expense entries can be classified as planned, unplanned, emergency,
+unavoidable, or unsure. Reports provide week, month, year, and custom date
+ranges, an expense-category filter, currency-converted income and expense
+summaries, net savings, six-month cashflow, goal progress, intent totals, and
+smart insights. The total-balance card compares accessible-account balances
+with the previous period; selecting an expense category does not change income
+or total balance. Refunds reduce their original expense category, and
+refund-only categories do not create negative chart widths.
+
+Reports can be downloaded as CSV in summary, expense, income, savings/goals,
+and transaction formats. PDF and XLSX downloads are not currently available.

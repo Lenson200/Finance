@@ -13,6 +13,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Account
 from apps.categories.models import Category
+from apps.dashboard.models import Goal
 from apps.transactions.models import Transaction, TransactionTemplate
 from apps.workspaces.models import Membership, Workspace
 
@@ -277,6 +278,218 @@ class DashboardPageTests(TestCase):
         ):
             with self.subTest(path=path):
                 self.assertEqual(self.client.get(path).status_code, 200)
+
+    def test_expense_entry_exposes_intention_options(self):
+        response = self.client.get("/activity/new/?kind=expense")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Expense intention")
+        for option in ("Planned", "Unplanned", "Emergency", "Unavoidable", "Not sure"):
+            with self.subTest(option=option):
+                self.assertContains(response, option)
+
+    def test_goal_creation_and_progress_milestones(self):
+        page = self.client.get("/goals/")
+        self.assertContains(page, 'data-goal-category="travel"')
+
+        response = self.client.post(
+            "/goals/",
+            {
+                "name": "Summer holiday",
+                "category": Goal.Category.TRAVEL,
+                "target_amount": "2000.00",
+                "current_savings": "100.00",
+                "target_date": (timezone.localdate() + timedelta(days=100)).isoformat(),
+                "contribution_frequency": Goal.Frequency.WEEKLY,
+            },
+        )
+
+        self.assertRedirects(response, "/goals/")
+        goal = Goal.objects.get(name="Summer holiday")
+        self.assertEqual(goal.created_by, self.user)
+        self.assertEqual(goal.progress_percent, 5)
+        self.assertEqual(goal.workspace, self.personal)
+        self.assertFalse(Transaction.objects.exists())
+
+        response = self.client.post(
+            "/goals/",
+            {
+                "action": "progress",
+                "goal_id": goal.pk,
+                "current_savings": "1600.00",
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "reached 80%")
+
+        response = self.client.post(
+            "/goals/",
+            {
+                "action": "progress",
+                "goal_id": goal.pk,
+                "current_savings": "2000.00",
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Congratulations")
+        goal.refresh_from_db()
+        self.assertTrue(goal.achieved)
+        self.assertEqual(goal.progress_percent, 100)
+
+    def test_goal_creation_rejects_past_target_dates(self):
+        response = self.client.post(
+            "/goals/",
+            {
+                "name": "Past goal",
+                "category": Goal.Category.TRAVEL,
+                "target_amount": "1000.00",
+                "current_savings": "0.00",
+                "target_date": (timezone.localdate() - timedelta(days=1)).isoformat(),
+                "contribution_frequency": Goal.Frequency.WEEKLY,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("target_date", response.context["goal_form"].errors)
+        self.assertFalse(Goal.objects.filter(name="Past goal").exists())
+
+    def test_goal_dashboard_is_scoped_to_the_creating_user(self):
+        Goal.objects.create(
+            workspace=self.personal,
+            created_by=self.user,
+            name="Private trip",
+            category=Goal.Category.TRAVEL,
+            target_amount="1000.00",
+        )
+        member = get_user_model().objects.create_user(
+            email="goal-member@example.com",
+            password="Strong-password-493!",
+        )
+        Membership.objects.create(
+            workspace=self.personal,
+            user=member,
+            role=Membership.Role.MEMBER,
+        )
+        self.client.force_login(member)
+
+        response = self.client.get("/goals/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Private trip")
+
+    def test_reports_filter_category_and_export_analytics_csv(self):
+        account = Account.objects.create(
+            workspace=self.personal,
+            name="Everyday",
+            account_type=Account.AccountType.BANK,
+            currency=self.personal.base_currency,
+            opening_balance="1000.00",
+        )
+        groceries = Category.objects.create(
+            workspace=self.personal,
+            name="Groceries",
+            kind=Category.Kind.EXPENSE,
+        )
+        transport = Category.objects.create(
+            workspace=self.personal,
+            name="Transport",
+            kind=Category.Kind.EXPENSE,
+        )
+        Transaction.objects.create(
+            account=account,
+            category=groceries,
+            kind=Transaction.Kind.EXPENSE,
+            expense_intent=Transaction.ExpenseIntent.PLANNED,
+            amount="120.00",
+            description="Weekly shop",
+        )
+        Transaction.objects.create(
+            account=account,
+            category=transport,
+            kind=Transaction.Kind.EXPENSE,
+            expense_intent=Transaction.ExpenseIntent.EMERGENCY,
+            amount="30.00",
+            description="Taxi",
+        )
+        Transaction.objects.create(
+            account=account,
+            kind=Transaction.Kind.INCOME,
+            amount="500.00",
+            description="Pay",
+        )
+
+        response = self.client.get(
+            "/reports/",
+            {"period": "month", "category": str(groceries.pk)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["summary"]["expenses"], Decimal("120.00"))
+        self.assertEqual(response.context["summary"]["income"], Decimal("500.00"))
+        self.assertEqual(response.context["net_savings"], Decimal("380.00"))
+        self.assertEqual(response.context["summary"]["net_worth"], Decimal("1350.00"))
+        self.assertEqual(response.context["balance_change_percent"], Decimal("35.0"))
+        self.assertContains(response, "35.0% compared with previous period")
+        self.assertContains(response, "Planned")
+        self.assertContains(response, "Download CSV")
+
+        export = self.client.get(
+            "/reports/export.csv",
+            {"period": "month", "report": "transactions"},
+        )
+        self.assertEqual(export.status_code, 200)
+        self.assertEqual(export["Content-Type"], "text/csv; charset=utf-8")
+        self.assertContains(export, "Expense intent")
+        self.assertContains(export, "Emergency")
+
+        filtered_export = self.client.get(
+            "/reports/export.csv",
+            {
+                "period": "month",
+                "category": str(groceries.pk),
+                "report": "transactions",
+            },
+        )
+        self.assertContains(filtered_export, "Weekly shop")
+        self.assertNotContains(filtered_export, "Taxi")
+
+    def test_refund_category_rows_never_have_negative_chart_dimensions(self):
+        account = Account.objects.create(
+            workspace=self.personal,
+            name="Everyday",
+            account_type=Account.AccountType.BANK,
+            currency=self.personal.base_currency,
+        )
+        groceries = Category.objects.create(
+            workspace=self.personal,
+            name="Groceries",
+            kind=Category.Kind.EXPENSE,
+        )
+        purchase = Transaction.objects.create(
+            account=account,
+            category=groceries,
+            kind=Transaction.Kind.EXPENSE,
+            amount="30.00",
+            occurred_at=timezone.now() - timedelta(days=40),
+        )
+        Transaction.objects.create(
+            account=account,
+            kind=Transaction.Kind.INCOME,
+            amount="30.00",
+            refund_of=purchase,
+            occurred_at=timezone.now(),
+        )
+
+        response = self.client.get("/reports/", {"period": "month"})
+
+        self.assertEqual(response.status_code, 200)
+        row = response.context["expense_category_rows"][0]
+        self.assertEqual(row["amount"], Decimal("-30.00"))
+        self.assertEqual(row["width"], 0)
+        self.assertEqual(row["percent"], Decimal("0.0"))
+        self.assertEqual(response.context["six_months"][-1]["expense_width"], 0)
 
     def test_offline_context_returns_authenticated_identity_and_csrf_token(self):
         response = self.client.get("/api/offline/context/")

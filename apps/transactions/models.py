@@ -13,6 +13,13 @@ class Transaction(models.Model):
         EXPENSE = "expense", "Expense"
         TRANSFER = "transfer", "Transfer"
 
+    class ExpenseIntent(models.TextChoices):
+        PLANNED = "planned", "Planned"
+        UNPLANNED = "unplanned", "Unplanned"
+        EMERGENCY = "emergency", "Emergency"
+        UNAVOIDABLE = "unavoidable", "Unavoidable"
+        UNSURE = "unsure", "Not sure"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     account = models.ForeignKey(
         "accounts.Account",
@@ -42,6 +49,12 @@ class Transaction(models.Model):
         limit_choices_to={"kind": "expense"},
     )
     kind = models.CharField(max_length=10, choices=Kind.choices)
+    expense_intent = models.CharField(
+        max_length=12,
+        verbose_name="Expense intention",
+        choices=ExpenseIntent.choices,
+        default=ExpenseIntent.UNSURE,
+    )
     amount = models.DecimalField(max_digits=14, decimal_places=2)
     exchange_rate = models.DecimalField(
         max_digits=16,
@@ -117,6 +130,11 @@ class Transaction(models.Model):
                 errors["category"] = "Transfers cannot have an income or expense category."
         elif self.destination_account_id:
             errors["destination_account"] = "Only transfers have a destination account."
+        if (
+            self.kind != self.Kind.EXPENSE
+            and self.expense_intent != self.ExpenseIntent.UNSURE
+        ):
+            errors["expense_intent"] = "Expense intent can only be set for expenses."
         if self.refund_of_id:
             if self.kind != self.Kind.INCOME:
                 errors["refund_of"] = "Only income transactions can record an expense refund."

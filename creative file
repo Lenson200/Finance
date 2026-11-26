@@ -264,3 +264,28 @@ Offline recording and synchronization
   actions. Offline transaction entry is available after opening the entry page
   once online; locally stored financial data remains on the device until synced
   or dismissed.
+
+Savings goals, expense intent and financial analytics
+
+- Added workspace-scoped savings goals with name, category, target amount,
+  current savings, target date, and daily, weekly, or monthly contribution pace.
+  Goals are private to the creator, and manually tracked savings do not change
+  account balances or post ledger transactions.
+- Added illustrated goal-category cards, progress indicators, remaining amounts,
+  suggested contribution amounts, and in-app milestone messages at 75% and 100%.
+- Added expense-intent choices (planned, unplanned, emergency, unavoidable, and
+  unsure) to expense entry, offline synchronization, API serialization, and
+  transaction CSV exports. Non-expense transactions cannot carry an expense
+  intention, and idempotent retries detect changes to that field.
+- Replaced the Reports placeholder with period and expense-category filters,
+  income/expense/net-savings summaries, savings rate, category breakdown,
+  six-month cashflow, expense-intent totals, goal progress, and smart insights.
+  The total-balance card compares accessible-account balances with the previous
+  period and remains independent of the selected expense category.
+- Added category spending comparisons and handled refunds so refund-only
+  categories never produce negative chart widths. Added CSV downloads for
+  summary, expense, income, savings/goals, and transaction reports; PDF and XLSX
+  exports remain future work.
+- Validated goals, creator privacy, milestone messages, expense intent,
+  idempotency conflicts, category filtering, refund chart dimensions, and CSV
+  output with focused tests and the complete 77-test Django suite.

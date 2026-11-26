@@ -225,6 +225,27 @@
     updateDebtTerm();
   }
 
+  const goalCategoryField = document.getElementById("id_category");
+  if (goalCategoryField) {
+    const goalCategoryButtons = [...document.querySelectorAll("[data-goal-category]")];
+    const updateGoalCategoryButtons = () => {
+      goalCategoryButtons.forEach((button) => {
+        const selected = button.dataset.goalCategory === goalCategoryField.value;
+        button.classList.toggle("selected", selected);
+        button.setAttribute("aria-pressed", String(selected));
+      });
+    };
+    goalCategoryButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        goalCategoryField.value = button.dataset.goalCategory;
+        goalCategoryField.dispatchEvent(new Event("change", { bubbles: true }));
+        updateGoalCategoryButtons();
+      });
+    });
+    goalCategoryField.addEventListener("change", updateGoalCategoryButtons);
+    updateGoalCategoryButtons();
+  }
+
   const form = document.getElementById("quick-transaction-form");
   if (!form) return;
 
@@ -241,6 +262,7 @@
   const destinationField = form.querySelector('[data-field="destination_account"]');
   const categoryField = form.querySelector('[data-field="category"]');
   const refundField = form.querySelector('[data-field="refund_of"]');
+  const intentField = form.querySelector('[data-field="expense_intent"]');
   const kindField = form.querySelector('[data-field="kind"]');
   const accountLabel = form.querySelector('[data-field="account"] label');
   const amountLabel = form.querySelector('[data-field="amount"] label');
@@ -260,6 +282,7 @@
       destination_account_id: destination?.value || null,
       category_id: category?.value || null,
       refund_of_id: refund?.value || null,
+      expense_intent: field("expense_intent")?.value || "unsure",
       kind: kind?.value || "",
       amount: amount?.value || "",
       description: description?.value || "",
@@ -369,6 +392,7 @@
     if (destinationField) destinationField.hidden = selectedKind !== "transfer";
     if (categoryField) categoryField.hidden = selectedKind === "transfer";
     if (refundField) refundField.hidden = selectedKind !== "income";
+    if (intentField) intentField.hidden = selectedKind !== "expense";
     if (accountLabel) {
       accountLabel.textContent = selectedKind === "income"
         ? "Received into"

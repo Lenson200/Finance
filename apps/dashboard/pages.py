@@ -1,6 +1,8 @@
 import csv
+from calendar import monthrange
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from math import ceil
 from zoneinfo import ZoneInfo
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -16,6 +18,8 @@ from apps.accounts.forms import AccountAccessForm, AccountForm
 from apps.accounts.models import Account, AccountAccess
 from apps.categories.forms import CategoryForm
 from apps.categories.models import Category
+from apps.dashboard.forms import GoalForm, GoalProgressForm
+from apps.dashboard.models import Goal
 from apps.transactions.forms import TransactionForm
 from apps.transactions.models import Transaction, TransactionTemplate
 from apps.transactions.access import transactions_for_membership
@@ -932,44 +936,656 @@ def categories_page(request):
 @login_required
 def reports(request):
     membership = _active_membership(request)
-    summary = (
-        _reporting_summary(membership.workspace, membership=membership)
-        if membership
-        else None
-    )
-    expense_categories = []
-    if summary:
-        totals = {}
-        for item in summary["transactions"]:
-            if item.kind == Transaction.Kind.EXPENSE:
-                name = item.category.name if item.category else "Uncategorized"
-                totals[name] = totals.get(name, Decimal("0.00")) + item.amount_in_base
-            elif item.refund_of_id:
-                name = (
-                    item.refund_of.category.name
-                    if item.refund_of.category
-                    else "Uncategorized"
-                )
-                totals[name] = totals.get(name, Decimal("0.00")) - item.amount_in_base
-        expense_categories = sorted(totals.items(), key=lambda row: row[1], reverse=True)
+    if not membership:
+        return render(
+            request,
+            "dashboard/reports.html",
+            {"membership": None, "summary": None, "active_nav": "reports"},
+        )
+    context = _analytics_context(request, membership)
     return render(
         request,
         "dashboard/reports.html",
         {
             "membership": membership,
-            "summary": summary,
-            "expense_categories": expense_categories,
+            **context,
             "active_nav": "reports",
         },
     )
 
 
+def _analytics_context(request, membership):
+    workspace = membership.workspace
+    with timezone.override(ZoneInfo(workspace.timezone)):
+        today = timezone.localdate()
+    period = request.GET.get("period", "month")
+    if period == "week":
+        since = today - timedelta(days=today.weekday())
+        until = today
+    elif period == "year":
+        since = today.replace(month=1, day=1)
+        until = today
+    elif period == "custom":
+        try:
+            since = date.fromisoformat(request.GET.get("from", ""))
+            until = date.fromisoformat(request.GET.get("to", ""))
+            if since > until:
+                raise ValueError
+        except ValueError:
+            messages.error(request, "Choose a valid report date range.")
+            period = "month"
+            since = today.replace(day=1)
+            until = today
+    else:
+        period = "month"
+        since = today.replace(day=1)
+        until = today
+
+    summary = _reporting_summary(
+        workspace,
+        membership=membership,
+        since=since,
+        until=until,
+    )
+    period_days = (until - since).days + 1
+    previous_until = since - timedelta(days=1)
+    previous_since = previous_until - timedelta(days=period_days - 1)
+    category_options = list(
+        Category.objects.filter(
+            workspace=workspace,
+            kind=Category.Kind.EXPENSE,
+        ).order_by("group", "name")
+    )
+    selected_category = request.GET.get("category", "")
+    if selected_category and not any(
+        str(category.pk) == selected_category for category in category_options
+    ):
+        selected_category = ""
+    period_transactions = [
+        item
+        for item in summary["transactions"]
+        if since <= timezone.localtime(
+            item.occurred_at,
+            ZoneInfo(workspace.timezone),
+        ).date() <= until
+    ]
+    transactions = period_transactions
+    if selected_category:
+        category_id = int(selected_category)
+        transactions = [
+            item
+            for item in transactions
+            if item.category_id == category_id
+            or (
+                item.refund_of_id
+                and item.refund_of.category_id == category_id
+            )
+        ]
+    previous_period_transactions = [
+        item
+        for item in summary["transactions"]
+        if previous_since
+        <= timezone.localtime(
+            item.occurred_at,
+            ZoneInfo(workspace.timezone),
+        ).date()
+        <= previous_until
+    ]
+    previous_transactions = previous_period_transactions
+    if selected_category:
+        category_id = int(selected_category)
+        previous_transactions = [
+            item
+            for item in previous_transactions
+            if item.category_id == category_id
+            or (
+                item.refund_of_id
+                and item.refund_of.category_id == category_id
+            )
+        ]
+    income = sum(
+        (
+            item.amount_in_base
+            for item in period_transactions
+            if item.kind == Transaction.Kind.INCOME and not item.refund_of_id
+        ),
+        Decimal("0.00"),
+    )
+    expenses = sum(
+        (
+            item.amount_in_base * (-1 if item.refund_of_id else 1)
+            for item in transactions
+            if item.kind == Transaction.Kind.EXPENSE or item.refund_of_id
+        ),
+        Decimal("0.00"),
+    )
+    previous_income = sum(
+        (
+            item.amount_in_base
+            for item in previous_period_transactions
+            if item.kind == Transaction.Kind.INCOME and not item.refund_of_id
+        ),
+        Decimal("0.00"),
+    )
+    previous_expenses = sum(
+        (
+            item.amount_in_base * (-1 if item.refund_of_id else 1)
+            for item in previous_transactions
+            if item.kind == Transaction.Kind.EXPENSE or item.refund_of_id
+        ),
+        Decimal("0.00"),
+    )
+    previous_category_totals = {}
+    for item in previous_transactions:
+        if item.kind == Transaction.Kind.EXPENSE:
+            category_name = item.category.name if item.category else "Uncategorized"
+            previous_category_totals[category_name] = (
+                previous_category_totals.get(category_name, Decimal("0.00"))
+                + item.amount_in_base
+            )
+        elif item.refund_of_id:
+            category_name = (
+                item.refund_of.category.name
+                if item.refund_of.category
+                else "Uncategorized"
+            )
+            previous_category_totals[category_name] = (
+                previous_category_totals.get(category_name, Decimal("0.00"))
+                - item.amount_in_base
+            )
+    previous_accounts = list(accounts_for_membership(membership))
+    previous_balances = {
+        account.pk: account.opening_balance * account.opening_balance_rate
+        for account in previous_accounts
+    }
+    for item in summary["transactions"]:
+        item_date = timezone.localtime(
+            item.occurred_at,
+            ZoneInfo(workspace.timezone),
+        ).date()
+        if item_date > previous_until:
+            continue
+        amount = item.amount_in_base
+        account = item.account
+        if item.kind == Transaction.Kind.INCOME:
+            if account.pk in previous_balances:
+                previous_balances[account.pk] += (
+                    -amount if account.is_liability else amount
+                )
+        elif item.kind == Transaction.Kind.EXPENSE:
+            if account.pk in previous_balances:
+                previous_balances[account.pk] += (
+                    amount if account.is_liability else -amount
+                )
+        else:
+            if account.pk in previous_balances:
+                previous_balances[account.pk] -= amount
+            destination = item.destination_account
+            if destination.pk in previous_balances:
+                previous_balances[destination.pk] += (
+                    -amount if destination.is_liability else amount
+                )
+    previous_net_worth = sum(
+        (
+            -previous_balances[account.pk]
+            if account.is_liability
+            else previous_balances[account.pk]
+            for account in previous_accounts
+        ),
+        Decimal("0.00"),
+    )
+    balance_change = summary["net_worth"] - previous_net_worth
+    balance_change_percent = (
+        (balance_change / abs(previous_net_worth) * 100).quantize(Decimal("0.1"))
+        if previous_net_worth
+        else None
+    )
+    summary["income"] = income
+    summary["expenses"] = expenses
+    net_savings = income - expenses
+    savings_rate = (
+        (net_savings / income * 100).quantize(Decimal("0.1"))
+        if income > 0
+        else Decimal("0.0")
+    )
+
+    category_totals = {}
+    intent_totals = {value: Decimal("0.00") for value, _ in Transaction.ExpenseIntent.choices}
+    for item in transactions:
+        if item.kind == Transaction.Kind.EXPENSE:
+            name = item.category.name if item.category else "Uncategorized"
+            category_totals[name] = (
+                category_totals.get(name, Decimal("0.00")) + item.amount_in_base
+            )
+            intent_totals[item.expense_intent] += item.amount_in_base
+        elif item.refund_of_id:
+            name = (
+                item.refund_of.category.name
+                if item.refund_of.category
+                else "Uncategorized"
+            )
+            category_totals[name] = (
+                category_totals.get(name, Decimal("0.00")) - item.amount_in_base
+            )
+    expense_categories = sorted(
+        category_totals.items(),
+        key=lambda row: row[1],
+        reverse=True,
+    )
+    max_category = max(
+        Decimal("0"),
+        max((amount for _, amount in expense_categories), default=Decimal("0")),
+    )
+    expense_category_rows = []
+    category_total = sum(
+        (max(amount, Decimal("0.00")) for _, amount in expense_categories),
+        Decimal("0.00"),
+    )
+    for name, amount in expense_categories:
+        expense_category_rows.append(
+            {
+                "name": name,
+                "amount": amount,
+                "percent": (
+                    (amount / category_total * 100).quantize(Decimal("0.1"))
+                    if category_total > 0 and amount > 0
+                    else Decimal("0.0")
+                ),
+                "width": (
+                    min(100, max(0, int(amount / max_category * 100)))
+                    if max_category > 0 and amount > 0
+                    else 0
+                ),
+            }
+        )
+
+    six_months = []
+    month_cursor = today.replace(day=1)
+    for offset in range(5, -1, -1):
+        month_index = month_cursor.month - offset
+        year = month_cursor.year
+        while month_index <= 0:
+            month_index += 12
+            year -= 1
+        month_start = date(year, month_index, 1)
+        month_end = date(
+            year,
+            month_index,
+            monthrange(year, month_index)[1],
+        )
+        month_items = [
+            item
+            for item in summary["transactions"]
+            if month_start
+            <= timezone.localtime(
+                item.occurred_at,
+                ZoneInfo(workspace.timezone),
+            ).date()
+            <= month_end
+        ]
+        month_expense_items = month_items
+        if selected_category:
+            month_expense_items = [
+                item
+                for item in month_items
+                if item.category_id == int(selected_category)
+                or (
+                    item.refund_of_id
+                    and item.refund_of.category_id == int(selected_category)
+                )
+            ]
+        month_income = sum(
+            (
+                item.amount_in_base
+                for item in month_items
+                if item.kind == Transaction.Kind.INCOME and not item.refund_of_id
+            ),
+            Decimal("0.00"),
+        )
+        month_expenses = sum(
+            (
+                item.amount_in_base * (-1 if item.refund_of_id else 1)
+                for item in month_expense_items
+                if item.kind == Transaction.Kind.EXPENSE or item.refund_of_id
+            ),
+            Decimal("0.00"),
+        )
+        six_months.append(
+            {
+                "label": month_start.strftime("%b"),
+                "income": month_income,
+                "expenses": month_expenses,
+            }
+        )
+    max_monthly = max(
+        (
+            max(item["income"], item["expenses"])
+            for item in six_months
+        ),
+        default=Decimal("0"),
+    )
+    for item in six_months:
+        item["income_width"] = min(
+            100,
+            int(item["income"] / max_monthly * 100) if max_monthly else 0,
+        )
+        item["expense_width"] = min(
+            100,
+            max(0, int(item["expenses"] / max_monthly * 100))
+            if max_monthly
+            else 0,
+        )
+
+    insights = []
+    if income > 0 and net_savings > 0:
+        insights.append(
+            {
+                "kind": "positive",
+                "title": "Positive savings trend",
+                "text": f"You saved {savings_rate}% of your income in this period.",
+            }
+        )
+    if expense_categories:
+        top_name, top_amount = expense_categories[0]
+        insights.append(
+            {
+                "kind": "notice",
+                "title": f"Top spending: {top_name}",
+                "text": f"{top_amount:.2f} {summary['currency']} was recorded in this category.",
+            }
+        )
+    for name, amount in expense_categories:
+        previous_amount = previous_category_totals.get(name, Decimal("0.00"))
+        if previous_amount > 0 and amount >= previous_amount * Decimal("1.2"):
+            increase = ((amount - previous_amount) / previous_amount * 100).quantize(
+                Decimal("0.1")
+            )
+            insights.append(
+                {
+                    "kind": "warning",
+                    "title": f"{name} spending is up",
+                    "text": f"Spending rose {increase}% compared with the previous period.",
+                }
+            )
+    if income and expenses > income:
+        insights.append(
+            {
+                "kind": "warning",
+                "title": "Spending exceeded income",
+                "text": "Review your expense categories and consider a savings target.",
+            }
+        )
+
+    return {
+        "summary": summary,
+        "expense_categories": expense_categories,
+        "expense_category_rows": expense_category_rows,
+        "category_percentages": category_totals,
+        "max_category": max_category,
+        "intent_totals": [
+            (label, intent_totals[value])
+            for value, label in Transaction.ExpenseIntent.choices
+        ],
+        "six_months": six_months,
+        "net_savings": net_savings,
+        "savings_rate": savings_rate,
+        "previous_since": previous_since,
+        "previous_until": previous_until,
+        "previous_income": previous_income,
+        "previous_expenses": previous_expenses,
+        "previous_net_worth": previous_net_worth,
+        "balance_change": balance_change,
+        "balance_change_percent": balance_change_percent,
+        "insights": insights,
+        "category_options": category_options,
+        "selected_category": selected_category,
+        "period": period,
+        "since": since,
+        "until": until,
+        "report_types": (
+            ("summary", "Monthly financial report"),
+            ("expenses", "Expense report"),
+            ("income", "Income report"),
+            ("savings", "Savings and goals report"),
+            ("transactions", "Transaction report"),
+        ),
+        "report_type": request.GET.get("report", "summary"),
+        "user_goals": Goal.objects.filter(
+            workspace=workspace,
+            created_by=request.user,
+        ),
+    }
+
+
 @login_required
+def export_reports_csv(request):
+    membership = _active_membership(request)
+    if not membership:
+        return HttpResponse("Workspace membership required.", status=403)
+    context = _analytics_context(request, membership)
+    report_type = context["report_type"]
+    if report_type not in {value for value, _ in context["report_types"]}:
+        report_type = "summary"
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = (
+        f'attachment; filename="pocketfinance-{report_type}-report.csv"'
+    )
+    writer = csv.writer(response)
+    summary = context["summary"]
+    if report_type == "transactions":
+        writer.writerow(
+            [
+                "Date",
+                "Type",
+                "Description",
+                "Category",
+                "Expense intent",
+                "Amount",
+                "Currency",
+                "Reporting amount",
+            ]
+        )
+        for item in summary["transactions"]:
+            occurred_date = timezone.localtime(
+                item.occurred_at,
+                ZoneInfo(membership.workspace.timezone),
+            ).date()
+            if not context["since"] <= occurred_date <= context["until"]:
+                continue
+            selected_category = context["selected_category"]
+            if selected_category and item.category_id != int(selected_category) and not (
+                item.refund_of_id
+                and item.refund_of.category_id == int(selected_category)
+            ):
+                continue
+            writer.writerow(
+                [
+                    occurred_date.isoformat(),
+                    item.get_kind_display(),
+                    _csv_text(item.description),
+                    _csv_text(item.category.name if item.category else ""),
+                    item.get_expense_intent_display(),
+                    item.amount,
+                    item.account.currency,
+                    item.amount_in_base,
+                ]
+            )
+    elif report_type == "expenses":
+        writer.writerow(["Expense category", "Amount", "Currency", "Percent of spending"])
+        for item in context["expense_category_rows"]:
+            writer.writerow(
+                [
+                    item["name"],
+                    item["amount"],
+                    summary["currency"],
+                    item["percent"],
+                ]
+            )
+    elif report_type == "income":
+        writer.writerow(["Income this period", summary["income"], summary["currency"]])
+    elif report_type == "savings":
+        writer.writerow(["Net savings", context["net_savings"], summary["currency"]])
+        writer.writerow(["Savings rate", context["savings_rate"], "%"])
+        writer.writerow([])
+        writer.writerow(["Goal", "Category", "Current savings", "Target", "Target date", "Progress"])
+        for goal in Goal.objects.filter(
+            workspace=membership.workspace,
+            created_by=request.user,
+        ):
+            writer.writerow(
+                [
+                    _csv_text(goal.name),
+                    goal.get_category_display(),
+                    goal.current_savings,
+                    goal.target_amount,
+                    goal.target_date or "",
+                    f"{goal.progress_percent}%",
+                ]
+            )
+    else:
+        writer.writerow(["Metric", "Amount", "Currency"])
+        writer.writerow(["Income", summary["income"], summary["currency"]])
+        writer.writerow(["Expenses", summary["expenses"], summary["currency"]])
+        writer.writerow(["Net savings", context["net_savings"], summary["currency"]])
+        writer.writerow(["Savings rate", context["savings_rate"], "%"])
+        writer.writerow(["Net worth", summary["net_worth"], summary["currency"]])
+        writer.writerow([])
+        writer.writerow(["Expense category", "Amount", "Currency"])
+        for name, amount in context["expense_categories"]:
+            writer.writerow([name, amount, summary["currency"]])
+    return response
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
 def goals(request):
+    membership = _active_membership(request)
+    if not membership:
+        return render(
+            request,
+            "dashboard/goals.html",
+            {"membership": None, "goal_form": None, "goal_cards": []},
+        )
+    goal_queryset = Goal.objects.filter(
+        workspace=membership.workspace,
+        created_by=request.user,
+    )
+    if request.method == "POST":
+        if not _can_write(membership):
+            return HttpResponse("Workspace write access is required.", status=403)
+        if request.POST.get("action") == "progress":
+            goal = get_object_or_404(goal_queryset, pk=request.POST.get("goal_id"))
+            goal_form = GoalForm()
+            progress_form = GoalProgressForm(request.POST)
+            if progress_form.is_valid():
+                previous = goal.progress_percent
+                goal.current_savings = progress_form.cleaned_data["current_savings"]
+                try:
+                    goal.full_clean()
+                    goal.save()
+                except ValidationError as error:
+                    for field, errors in error.error_dict.items():
+                        for item in errors:
+                            messages.error(request, str(item))
+                else:
+                    if previous < 75 <= goal.progress_percent < 100:
+                        messages.success(
+                            request,
+                            f"Great progress! You have reached {goal.progress_percent}% of “{goal.name}”.",
+                        )
+                    elif previous < 100 <= goal.progress_percent:
+                        messages.success(
+                            request,
+                            f"Congratulations! You achieved “{goal.name}”. 🏆",
+                        )
+                    else:
+                        messages.success(request, "Goal savings updated.")
+                    return redirect("dashboard:goals")
+            else:
+                for errors in progress_form.errors.values():
+                    for error in errors:
+                        messages.error(request, error)
+        else:
+            goal_form = GoalForm(request.POST)
+            if goal_form.is_valid():
+                goal = goal_form.save(commit=False)
+                goal.workspace = membership.workspace
+                goal.created_by = request.user
+                try:
+                    goal.full_clean()
+                    goal.save()
+                except ValidationError as error:
+                    for field, errors in error.error_dict.items():
+                        for item in errors:
+                            if field in goal_form.fields:
+                                goal_form.add_error(field, item)
+                            else:
+                                goal_form.add_error(None, item)
+                else:
+                    if goal.achieved:
+                        messages.success(
+                            request,
+                            f"Congratulations! You already achieved “{goal.name}”. 🏆",
+                        )
+                    elif goal.progress_percent >= 75:
+                        messages.success(
+                            request,
+                            f"Great start! You are already {goal.progress_percent}% of the way to “{goal.name}”.",
+                        )
+                    else:
+                        messages.success(
+                            request,
+                            f"Your goal “{goal.name}” is ready to track.",
+                        )
+                    return redirect("dashboard:goals")
+    else:
+        goal_form = GoalForm() if _can_write(membership) else None
+
+    icons = {
+        Goal.Category.TRAVEL: "✈️",
+        Goal.Category.HOME: "🏡",
+        Goal.Category.EDUCATION: "📚",
+        Goal.Category.EMERGENCY: "🛟",
+        Goal.Category.VEHICLE: "🚗",
+        Goal.Category.TECHNOLOGY: "💻",
+        Goal.Category.WEDDING: "💍",
+        Goal.Category.OTHER: "🎯",
+    }
+    goal_cards = []
+    for goal in goal_queryset:
+        days_remaining = (
+            (goal.target_date - timezone.localdate()).days
+            if goal.target_date
+            else None
+        )
+        if days_remaining is not None and days_remaining > 0:
+            periods = {
+                Goal.Frequency.DAILY: days_remaining,
+                Goal.Frequency.WEEKLY: ceil(days_remaining / 7),
+                Goal.Frequency.MONTHLY: max(1, ceil(days_remaining / 30.44)),
+            }[goal.contribution_frequency]
+            suggested_contribution = (
+                goal.remaining_amount / periods
+            ).quantize(Decimal("0.01"))
+        else:
+            suggested_contribution = None
+        goal_cards.append(
+            {
+                "goal": goal,
+                "icon": icons[goal.category],
+                "suggested_contribution": suggested_contribution,
+            }
+        )
     return render(
         request,
         "dashboard/goals.html",
-        {"membership": _active_membership(request), "active_nav": "goals"},
+        {
+            "membership": membership,
+            "goal_form": goal_form,
+            "goal_cards": goal_cards,
+            "can_write": _can_write(membership),
+            "active_nav": "goals",
+        },
     )
 
 

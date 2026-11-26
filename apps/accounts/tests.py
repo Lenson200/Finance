@@ -376,6 +376,7 @@ class FinancialEndpointPermissionTests(TestCase):
         payload = {
             "account_id": str(self.account.pk),
             "kind": Transaction.Kind.EXPENSE,
+            "expense_intent": Transaction.ExpenseIntent.PLANNED,
             "amount": "5.00",
             "description": "Lunch",
             "idempotency_key": str(uuid.uuid4()),
@@ -402,6 +403,17 @@ class FinancialEndpointPermissionTests(TestCase):
             Transaction.objects.get(description="Lunch").journal_entry.lines.count(),
             2,
         )
+        self.assertEqual(
+            Transaction.objects.get(description="Lunch").expense_intent,
+            Transaction.ExpenseIntent.PLANNED,
+        )
+        payload["expense_intent"] = Transaction.ExpenseIntent.UNPLANNED
+        conflict = self.client.post(
+            self.endpoint_paths[1],
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(conflict.status_code, 409)
 
     def test_offline_transaction_date_is_stored_and_idempotent(self):
         self.client.force_login(self.owner)
@@ -428,6 +440,10 @@ class FinancialEndpointPermissionTests(TestCase):
 
         self.assertEqual(first.status_code, 201)
         self.assertEqual(retry.status_code, 200)
+        self.assertEqual(
+            Transaction.objects.get(description="Offline lunch").expense_intent,
+            Transaction.ExpenseIntent.UNSURE,
+        )
         self.assertEqual(
             Transaction.objects.get(description="Offline lunch").occurred_at.date().isoformat(),
             "2026-11-25",

@@ -78,6 +78,9 @@
               {% endfor %}
             </div>
           {% endif %}
+          {% if field.name == "expense_intent" %}
+            <span class="field-help">Optional: help us understand the context of this expense for future reports.</span>
+          {% endif %}
           {% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}
           {{ field.errors }}
         </div>

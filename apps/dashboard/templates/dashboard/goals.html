@@ -2,6 +2,103 @@
 {% block title %}Goals · PocketFinance{% endblock %}
 {% block page_heading %}Goals{% endblock %}
 {% block content %}
-<section class="page-intro"><div><h2>Savings and debt goals</h2><p class="muted">Keep your targets in sight as your financial picture grows.</p></div></section>
-<section class="panel empty-state"><div class="empty-icon">◎</div><h3>Goals are coming next</h3><p class="muted">You can already review your account balances and financial progress from Home and Reports.</p></section>
+<section class="page-intro">
+  <div>
+    <h2>Your savings goals</h2>
+    <p class="muted">Set a target, choose a pace, and watch your progress. Goal savings are a tracker and do not move money between accounts.</p>
+  </div>
+</section>
+
+{% if goal_form %}
+<section class="panel entry-panel goal-create-panel">
+  <div class="panel-heading">
+    <div>
+      <span class="eyebrow">START SAVING</span>
+      <h3>Create a goal</h3>
+    </div>
+  </div>
+  <div class="goal-category-ideas" aria-label="Goal category ideas">
+    <button class="goal-idea" type="button" data-goal-category="travel" aria-pressed="false">✈️🏖️ <small>Travel</small></button>
+    <button class="goal-idea" type="button" data-goal-category="home" aria-pressed="false">🏡 <small>Home</small></button>
+    <button class="goal-idea" type="button" data-goal-category="education" aria-pressed="false">📚 <small>Education</small></button>
+    <button class="goal-idea" type="button" data-goal-category="emergency" aria-pressed="false">🛟 <small>Emergency fund</small></button>
+    <button class="goal-idea" type="button" data-goal-category="vehicle" aria-pressed="false">🚗 <small>Vehicle</small></button>
+    <button class="goal-idea" type="button" data-goal-category="technology" aria-pressed="false">💻 <small>Technology</small></button>
+    <button class="goal-idea" type="button" data-goal-category="wedding" aria-pressed="false">💍 <small>Wedding</small></button>
+    <button class="goal-idea" type="button" data-goal-category="other" aria-pressed="false">🎯 <small>Other</small></button>
+  </div>
+  <form method="post" class="form-stack goal-form">
+    {% csrf_token %}
+    {{ goal_form.non_field_errors }}
+    {% for field in goal_form %}
+      <div class="form-field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.name == "target_amount" or field.name == "current_savings" %}
+          <span class="field-help">Amounts use {{ membership.workspace.base_currency }}.</span>
+        {% endif %}
+        {{ field.errors }}
+      </div>
+    {% endfor %}
+    <button class="button button-primary" type="submit">Create savings goal</button>
+  </form>
+</section>
+{% endif %}
+
+<section class="goal-grid" aria-label="Savings goal progress">
+  {% for card in goal_cards %}
+    <article class="panel goal-card {% if card.goal.achieved %}goal-achieved{% endif %}">
+      <div class="goal-card-top">
+        <span class="goal-illustration" aria-hidden="true">{{ card.icon }}</span>
+        {% if card.goal.achieved %}
+          <span class="goal-status achieved">🏆 Achieved</span>
+        {% elif card.goal.progress_percent >= 75 %}
+          <span class="goal-status near-goal">Over 75% · nearly there</span>
+        {% else %}
+          <span class="goal-status">{{ card.goal.get_category_display }}</span>
+        {% endif %}
+      </div>
+      <h3>{{ card.goal.name }}</h3>
+      {% if card.goal.achieved %}
+        <p class="goal-congratulations">Congratulations! You reached your goal.</p>
+      {% elif card.goal.progress_percent >= 75 %}
+        <p class="goal-congratulations">Amazing progress. You’re in the home stretch!</p>
+      {% endif %}
+      <div class="goal-amounts">
+        <strong>{{ card.goal.current_savings|floatformat:2 }} <small>{{ membership.workspace.base_currency }}</small></strong>
+        <span>of {{ card.goal.target_amount|floatformat:2 }} {{ membership.workspace.base_currency }}</span>
+      </div>
+      <div class="goal-progress-track" role="progressbar" aria-label="{{ card.goal.name }} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ card.goal.progress_percent }}">
+        <span style="width: {{ card.goal.progress_percent }}%"></span>
+      </div>
+      <div class="goal-meta">
+        <strong>{{ card.goal.progress_percent }}%</strong>
+        {% if card.goal.achieved %}<span>Target achieved</span>{% else %}<span>{{ card.goal.remaining_amount|floatformat:2 }} {{ membership.workspace.base_currency }} to go</span>{% endif %}
+      </div>
+      <div class="goal-details">
+        <span>Target date <strong>{% if card.goal.target_date %}{{ card.goal.target_date|date:"M j, Y" }}{% else %}Not set{% endif %}</strong></span>
+        <span>Contribution pace <strong>{{ card.goal.get_contribution_frequency_display }}</strong></span>
+        {% if card.suggested_contribution %}<span>Suggested pace <strong>{{ card.suggested_contribution|floatformat:2 }} {{ membership.workspace.base_currency }} / {{ card.goal.get_contribution_frequency_display|lower }}</strong></span>{% endif %}
+      </div>
+      {% if can_write %}
+      <form method="post" class="goal-progress-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="progress">
+        <input type="hidden" name="goal_id" value="{{ card.goal.pk }}">
+        <label for="goal-savings-{{ card.goal.pk }}">Update current savings</label>
+        <div class="goal-progress-input">
+          <input id="goal-savings-{{ card.goal.pk }}" name="current_savings" type="number" min="0" step="0.01" value="{{ card.goal.current_savings }}">
+          <button class="button button-secondary" type="submit">Update</button>
+        </div>
+      </form>
+      {% endif %}
+    </article>
+  {% empty %}
+    <section class="panel empty-state">
+      <div class="empty-icon">🎯</div>
+      <h3>Your next goal starts here</h3>
+      <p class="muted">{% if goal_form %}Create a goal above and we’ll help you track each step.{% else %}Ask a workspace owner to create a goal.{% endif %}</p>
+    </section>
+  {% endfor %}
+</section>
 {% endblock %}

@@ -58,6 +58,7 @@ class TransactionForm(forms.ModelForm):
             "destination_account",
             "category",
             "refund_of",
+            "expense_intent",
             "amount",
             "description",
             "idempotency_key",
@@ -97,6 +98,7 @@ class TransactionForm(forms.ModelForm):
         )
         self.fields["category"].widget.selected_kind = selected_kind
         self.fields["category"].required = False
+        self.fields["expense_intent"].required = False
 
         self.fields["refund_of"].queryset = Transaction.objects.filter(
             account__in=writable_accounts,

@@ -36,6 +36,7 @@ def transaction_data(item, visible_account_ids):
             not destination_visible if destination_visible is not None else False
         ),
         "kind": item.kind,
+        "expense_intent": item.expense_intent,
         "amount": str(item.amount),
         "amount_in_base": str(item.amount_in_base),
         "exchange_rate": str(item.exchange_rate),
@@ -58,6 +59,7 @@ def _matches_posting(
     exchange_rate,
     description,
     occurred_at=None,
+    expense_intent=Transaction.ExpenseIntent.UNSURE,
 ):
     return (
         item.account_id == account.pk
@@ -69,6 +71,7 @@ def _matches_posting(
         and item.exchange_rate == exchange_rate
         and item.description == description
         and (occurred_at is None or item.occurred_at == occurred_at)
+        and item.expense_intent == expense_intent
     )
 
 
@@ -102,9 +105,17 @@ def transactions(request, workspace_id):
         return JsonResponse({"detail": "Request body must be a JSON object."}, status=400)
 
     kind = payload.get("kind")
+    expense_intent = payload.get(
+        "expense_intent",
+        Transaction.ExpenseIntent.UNSURE,
+    )
     description = payload.get("description", "")
     if kind not in Transaction.Kind.values:
         return JsonResponse({"detail": "Invalid transaction kind."}, status=400)
+    if expense_intent not in Transaction.ExpenseIntent.values:
+        return JsonResponse({"detail": "Invalid expense intention."}, status=400)
+    if kind != Transaction.Kind.EXPENSE:
+        expense_intent = Transaction.ExpenseIntent.UNSURE
     if not isinstance(description, str) or len(description) > 255:
         return JsonResponse(
             {"detail": "Description must be at most 255 characters."},
@@ -253,6 +264,7 @@ def transactions(request, workspace_id):
             exchange_rate=exchange_rate,
             description=description,
             occurred_at=occurred_at,
+            expense_intent=expense_intent,
         ):
             return JsonResponse(
                 transaction_data(
@@ -280,6 +292,7 @@ def transactions(request, workspace_id):
         exchange_rate=exchange_rate,
         idempotency_key=idempotency_key,
         description=description,
+        expense_intent=expense_intent,
     )
     if occurred_at is not None:
         item.occurred_at = occurred_at
@@ -298,6 +311,7 @@ def transactions(request, workspace_id):
             exchange_rate=exchange_rate,
             description=description,
             occurred_at=occurred_at,
+            expense_intent=expense_intent,
         ):
             return JsonResponse(
                 transaction_data(
@@ -329,6 +343,7 @@ def transactions(request, workspace_id):
             exchange_rate=exchange_rate,
             description=description,
             occurred_at=occurred_at,
+            expense_intent=expense_intent,
         ):
             return JsonResponse(
                 transaction_data(
